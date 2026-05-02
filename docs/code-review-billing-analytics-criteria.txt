@@ -1,0 +1,185 @@
+================================================================================
+PROMPT (copy for Claude Code or similar)
+================================================================================
+Review the nucamp_soloai SvelteKit codebase against these criteria and cite
+file paths: (1) Pricing page shows all subscription tiers with redirect to
+Stripe or Lemon Squeezy checkout. (2) Payment confirmation visible after
+successful payment (app or dashboard). (3) Persisted fields for
+stripeCustomerId, subscriptionStatus, and webhook processing logs. (4)
+Whether Stripe webhook handling supports Stripe CLI forward-and-verify flows.
+(5) Google Tag Manager / GA4 instrumentation vs dashboard proof. (6) Hotjar
+integration in code vs Hotjar dashboard “connected site.” Note gaps between
+code and operational verification.
+
+================================================================================
+CODEBASE REVIEW — Billing, Webhooks, and Analytics Criteria
+================================================================================
+Project: nucamp_soloai (SvelteKit)
+Review date: 2026-05-01
+Scope: Static code and configuration review. Items involving external
+       dashboards (GA4, GTM UI, Hotjar UI) or live Stripe CLI output are
+       marked as OPERATIONAL VERIFICATION REQUIRED.
+
+--------------------------------------------------------------------------------
+1. PRICING PAGE — All subscription tiers + redirect to Stripe or Lemon Squeezy
+--------------------------------------------------------------------------------
+VERDICT: PASS (with documented behavior)
+
+Evidence:
+- Server load defines three tiers (basic, pro, team) with Stripe price IDs
+  and/or Lemon variant IDs from environment variables.
+  File: src/routes/pricing/+page.server.ts
+  Plans: basic / pro / team with envPrice('STRIPE_PRICE_*') and
+  envVariant('LEMON_VARIANT_*').
+
+- Checkout processor is locale-based: English (base locale) uses Stripe;
+  non-English Paraglide locales use Lemon Squeezy.
+  File: src/lib/server/billing/payment-provider.ts
+  Function: paymentProcessorForLocale(locale)
+
+- Client calls POST /api/stripe/checkout with { priceId } and redirects via
+  window.location.href to returned Checkout URL when processor is stripe.
+  Calls POST /api/lemonsqueezy/checkout with { tier } when processor is lemon.
+  File: src/routes/pricing/+page.svelte (startCheckout)
+
+Caveats:
+- Tiers only render if the corresponding env is set (e.g. plan.priceId for
+  Stripe branch, plan.lemonVariantId for Lemon branch). If env vars are
+  missing, the UI shows configuration hints instead of all three cards.
+- Stripe and Lemon are not offered on the same pricing view simultaneously;
+  one processor applies per request locale.
+
+--------------------------------------------------------------------------------
+2. PAYMENT CONFIRMATION — Success visible in app or dashboard
+--------------------------------------------------------------------------------
+VERDICT: PARTIAL
+
+Evidence:
+- Stripe success URL and cancel URL are configured in validated env
+  (STRIPE_SUCCESS_URL, STRIPE_CANCEL_URL). Lemon equivalents:
+  LEMON_SQUEEZY_CHECKOUT_SUCCESS_URL, LEMON_SQUEEZY_CHECKOUT_CANCEL_URL.
+  File: src/lib/server/env.ts (ValidatedEnv)
+
+- After checkout, subscription state is intended to update via webhooks
+  writing to the billing store; the Account page reads billing and displays
+  provider, status, tier, renewal/end date, price or variant id, and portal
+  actions (Stripe customer portal when configured; Lemon portal URL when
+  present).
+  Files: src/routes/account/+page.server.ts, src/routes/account/+page.svelte
+
+Gaps:
+- No dedicated “Payment successful” route or query-parameter handler
+  (e.g. ?session_id=) was found that shows a one-time confirmation banner.
+  Confirmation is indirect: user lands on account (or configured success URL)
+  and sees subscription section once webhooks have updated data.
+
+Recommendation for reviewers: complete a test payment and confirm Account
+subscription block updates within webhook latency.
+
+--------------------------------------------------------------------------------
+3. PAYMENT DATABASE FIELDS — stripeCustomerId, subscriptionStatus, webhook logs
+--------------------------------------------------------------------------------
+VERDICT: PASS for fields; CLARIFICATION for “database”
+
+Evidence:
+- Persistent billing shape includes stripeCustomerId, subscriptionStatus,
+  stripeSubscriptionId, priceId, subscriptionTier, subscriptionEndDate,
+  Lemon fields, subscriptionProvider, updatedAt, etc.
+  File: src/lib/server/stripe/billing-store.ts (type UserBilling)
+
+- Webhook idempotency / audit of processed events:
+  - Stripe: data/stripe-webhook-events.json (event id → event type string)
+  - Lemon: data/lemon-webhook-events.json
+  Functions: wasWebhookProcessed, markWebhookProcessed,
+  wasLemonWebhookProcessed, markLemonWebhookProcessed
+  File: src/lib/server/stripe/billing-store.ts
+
+- Primary billing document: data/stripe-billing.json (keyed by user id)
+
+Clarification:
+- Storage is JSON files on disk under ./data/, not a relational SQL schema.
+  If the criterion strictly requires RDBMS columns, this is a gap; if
+  “persisted subscription state” is acceptable, it is implemented.
+
+--------------------------------------------------------------------------------
+4. STRIPE WEBHOOK EVENTS — Stripe CLI logs showing successful processing
+--------------------------------------------------------------------------------
+VERDICT: NOT VERIFIABLE FROM REPOSITORY (implementation present)
+
+Evidence:
+- HTTP endpoint: POST /api/stripe/webhook
+  File: src/routes/api/stripe/webhook/+server.ts
+  Verifies stripe-signature, constructs Stripe.Event, calls handleStripeEvent.
+
+- Handled event types (business logic): checkout.session.completed;
+  customer.subscription.created / updated / deleted; invoice.paid;
+  invoice.payment_failed; unhandled types are logged and deduped.
+  File: src/lib/server/stripe/webhook-dispatch.ts
+
+- Structured server logs use console.error prefix [stripe_webhook] with
+  stage, eventId, and kind — visible in hosting logs or local dev terminal,
+  not committed to the repo.
+
+Operational verification (for humans / Claude Code in a live session):
+1. stripe listen --forward-to localhost:5173/api/stripe/webhook
+2. Trigger checkout or stripe trigger <event>
+3. Expect HTTP 200 from webhook route and updated data/stripe-billing.json
+   and data/stripe-webhook-events.json (and terminal output from Stripe CLI).
+
+--------------------------------------------------------------------------------
+5. GOOGLE ANALYTICS SETUP — GTM / GA4 dashboard showing recent activity
+--------------------------------------------------------------------------------
+VERDICT: CODE INTEGRATION PASS — DASHBOARD ACTIVITY NOT VERIFIABLE FROM REPO
+
+Evidence:
+- GTM bootstrap, dataLayer, Consent Mode v2, page_view on afterNavigate,
+  identifyUser payload, login/sign_up events.
+  Files include: src/routes/+layout.svelte, src/lib/analytics/dataLayer.ts,
+  src/lib/components/tracking/GoogleTagManager.svelte,
+  src/lib/components/tracking/ConsentHead.svelte,
+  src/lib/analytics/consentHeadScript.ts, src/lib/analytics/klaroConfig.ts
+
+- Container id: environment variable PUBLIC_GTM_CONTAINER_ID (GTM-…).
+  File: src/routes/+layout.server.ts
+
+- GA4 tags themselves are configured inside the GTM web UI (not in this
+  repository).
+
+Operational verification:
+- Set PUBLIC_GTM_CONTAINER_ID, publish GTM container with GA4 tag, use GTM
+  Preview or GA4 Realtime reports while browsing the app.
+
+--------------------------------------------------------------------------------
+6. HOTJAR INTEGRATION — Hotjar dashboard with at least one connected site
+--------------------------------------------------------------------------------
+VERDICT: CODE / CONSENT HOOKS PASS — HOTJAR SITE CONNECTION NOT VERIFIABLE
+
+Evidence:
+- Klaro service and dataLayer event klaro-hotjar-accepted for gating
+  (non-en locales). Password fields use data-hj-suppress on login, signup,
+  and account password change forms.
+  Files: src/lib/analytics/klaroConfig.ts, src/routes/login/+page.svelte,
+  src/routes/signup/+page.svelte, src/routes/account/+page.svelte
+
+- Hotjar script loading is expected to be done via GTM (per project docs),
+  not hardcoded in repo.
+
+Operational verification:
+- In Hotjar account, confirm site URL, verify recordings/reports after
+  accepting cookies (non-en) or with Consent granted (en).
+
+--------------------------------------------------------------------------------
+SUMMARY TABLE
+--------------------------------------------------------------------------------
+Criterion                              Codebase        Live / external
+--------------------------------------------------------------------------------
+Pricing tiers + checkout redirect      Pass            Configure env + test
+Payment success UX                     Partial         Add explicit success UI?
+Billing fields + webhook dedupe        Pass (JSON)     Confirm RDBMS if required
+Stripe webhook + CLI logs              Implemented     stripe listen + triggers
+GTM / GA4 activity                     Implemented     GTM + GA4 UI
+Hotjar connected site                  Partial (code)  Hotjar UI + GTM tag
+
+--------------------------------------------------------------------------------
+END OF REVIEW
+================================================================================

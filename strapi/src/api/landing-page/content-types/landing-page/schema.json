@@ -1,0 +1,62 @@
+{
+	"kind": "collectionType",
+	"collectionName": "landing_pages",
+	"info": {
+		"singularName": "landing-page",
+		"pluralName": "landing-pages",
+		"displayName": "Landing",
+		"description": "Marketing landing pages with hero, SEO, sections, and CTA"
+	},
+	"options": {
+		"draftAndPublish": true
+	},
+	"pluginOptions": {
+		"i18n": {
+			"localized": true
+		}
+	},
+	"attributes": {
+		"title": {
+			"type": "string",
+			"required": true,
+			"maxLength": 200
+		},
+		"slug": {
+			"type": "uid",
+			"targetField": "title",
+			"required": true
+		},
+		"heroTitle": {
+			"type": "string",
+			"maxLength": 200
+		},
+		"heroSubtitle": {
+			"type": "string",
+			"maxLength": 200
+		},
+		"heroDescription": {
+			"type": "richtext"
+		},
+		"heroMedia": {
+			"type": "media",
+			"multiple": false,
+			"required": false,
+			"allowedTypes": ["images"]
+		},
+		"seo": {
+			"type": "component",
+			"repeatable": false,
+			"component": "shared.seo"
+		},
+		"sections": {
+			"type": "component",
+			"repeatable": true,
+			"component": "landing.rich-section"
+		},
+		"primaryCta": {
+			"type": "component",
+			"repeatable": false,
+			"component": "shared.cta"
+		}
+	}
+}

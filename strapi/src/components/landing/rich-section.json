@@ -1,0 +1,17 @@
+{
+	"collectionName": "components_landing_rich_sections",
+	"info": {
+		"displayName": "Rich section",
+		"icon": "layer"
+	},
+	"options": {},
+	"attributes": {
+		"heading": {
+			"type": "string",
+			"maxLength": 200
+		},
+		"body": {
+			"type": "richtext"
+		}
+	}
+}

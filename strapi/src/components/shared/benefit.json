@@ -1,0 +1,14 @@
+{
+	"collectionName": "components_shared_benefits",
+	"info": {
+		"displayName": "Benefit",
+		"icon": "check"
+	},
+	"options": {},
+	"attributes": {
+		"benefitText": {
+			"type": "text",
+			"maxLength": 2000
+		}
+	}
+}

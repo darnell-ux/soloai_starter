@@ -96,7 +96,9 @@ services:
       - default
 
   strapi:
-    image: vshadbolt/strapi
+    build:
+      context: .
+      dockerfile: Dockerfile.strapi
     environment:
       NODE_ENV: development # or production
       DATABASE_CLIENT: mysql
@@ -107,6 +109,7 @@ services:
       DATABASE_PASSWORD: ${MYSQL_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      STRAPI_ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
       APP_KEYS: ${APP_KEYS}
       TRANSFER_TOKEN_SALT: ${TRANSFER_TOKEN_SALT}
       API_TOKEN_SALT: ${API_TOKEN_SALT}
@@ -116,8 +119,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - strapi-app:/srv/app:z
+    # Removed volume mount - was overwriting built app files
     networks:
       - default      
 

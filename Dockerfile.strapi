@@ -1,0 +1,28 @@
+# filepath: /Users/darnellbaker/nucamp_soloai/Dockerfile.strapi
+FROM node:20-alpine
+
+# Install dependencies for native modules
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /srv/app
+
+# Copy package files
+COPY strapi/package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY strapi/ .
+
+# Create required directories
+RUN mkdir -p /srv/app/public/uploads
+
+# Build the app
+RUN npm run build
+
+# Expose port
+EXPOSE 1337
+
+# Start Strapi using the correct CLI path
+CMD ["node", "node_modules/@strapi/strapi/bin/strapi.js", "start"]

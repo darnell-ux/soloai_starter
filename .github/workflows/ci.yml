@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  secrets-and-env:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run check:secrets
+      - name: validate-env (CI)
+        run: npm run validate-env
+        env:
+          NODE_ENV: test
+        # Secrets injected at runtime from the platform secret store — never bake into artifacts.

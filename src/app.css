@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Global tokens: mirror tailwind.config.js theme.extend (keep in sync when tokens change).
+  Dark mode: pair with data-theme from DaisyUI. RTL: html[dir] from i18n.
+*/
+@layer base {
+	:root {
+		color-scheme: light dark;
+		--color-brand: #1d4ed8;
+		--color-brand-foreground: #f8fafc;
+		--color-brand-muted: #64748b;
+		--color-brand-contrast: #0f172a;
+		--color-surface: #ffffff;
+		--color-surface-elevated: #f8fafc;
+		--color-surface-muted: #f1f5f9;
+	}
+
+	[data-theme='dark'] {
+		color-scheme: dark;
+	}
+
+	html {
+		@apply font-sans antialiased;
+	}
+
+	:focus:not(:focus-visible) {
+		@apply outline-none;
+	}
+
+	:focus-visible {
+		box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.35);
+		@apply rounded-sm outline outline-2 outline-offset-2 outline-brand;
+	}
+}
+
+@layer components {
+	/* Route transition shell: isolate layout for smoother GPU-friendly opacity/transform */
+	.page-transition-root {
+		contain: layout style;
+	}
+
+	.skip-link {
+		position: absolute;
+		left: -9999px;
+		top: 0;
+		z-index: 100;
+		padding: 0.5rem 1rem;
+		border-radius: 0.25rem;
+		background-color: var(--color-surface, #fff);
+		font-size: 0.875rem;
+		font-weight: 500;
+		box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+	}
+
+	.skip-link:focus {
+		left: 1rem;
+		top: 1rem;
+		width: auto;
+		height: auto;
+		overflow: visible;
+		clip: auto;
+		white-space: normal;
+		outline: 2px solid var(--color-brand, #1d4ed8);
+		outline-offset: 2px;
+	}
+}

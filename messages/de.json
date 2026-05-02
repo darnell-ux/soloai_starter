@@ -1,0 +1,19 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"hello_world": "Hello, {name} from de!",
+	"home_features_heading": "Features",
+	"home_features_subheading": "Explore what you can build with our platform.",
+	"home_features_empty": "No features are available in this language yet.",
+	"home_signup_cta_heading": "Ready to get started?",
+	"home_signup_cta_subheading": "Create an account in minutes and ship with confidence.",
+	"home_signup_cta_button_guest": "Create account",
+	"home_signup_cta_button_dashboard": "Open dashboard",
+	"footer_nav_label": "Footer",
+	"footer_link_features": "Features",
+	"footer_link_pricing": "Pricing",
+	"footer_link_contact": "Contact",
+	"footer_link_privacy": "Privacy",
+	"footer_link_terms": "Terms",
+	"footer_link_cookie_settings": "Cookie-Einstellungen",
+	"footer_copyright": "© {year} SaaS. All rights reserved."
+}

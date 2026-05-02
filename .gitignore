@@ -1,7 +1,7 @@
-test-results
 node_modules
 
 # Output
+dist
 .output
 .vercel
 .netlify
@@ -23,5 +23,17 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+playwright/.cache/
 # Paraglide
 src/lib/paraglide
+project.inlang/cache/
+
+# Mautic sync state (local)
+data/mautic-contact-ids.json
+# Stripe billing (local; replace with DB in production)
+data/stripe-billing.json
+data/stripe-webhook-events.json

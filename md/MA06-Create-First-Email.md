@@ -1,140 +1,137 @@
-# Create First Marketing Email in Mautic
+# MA06 — Create the First Branded Welcome Email (Mautic 5.0+)
 
-## IMPORTANT IMPLEMENTATION NOTE
-All configuration and setup for Mautic must be performed exclusively through the official Mautic interfaces:
-- Mautic Web UI (Admin Dashboard)
-- Mautic REST API
-- Mautic CLI Tools
+## IMPORTANT: OFFICIAL INTERFACES ONLY
 
-Directly injecting code, editing core source files, or programmatically modifying the Mautic application files, configuration files, or database to create or modify entities is STRICTLY PROHIBITED.
+Use **only** supported Mautic **5.0+** mechanisms:
 
-This restriction ensures:
-- System consistency and database integrity
-- Compatibility with future Mautic updates and plugins
-- Maintainability and ease of troubleshooting
-- Full support for automation, validation, and permissions features
+- **Web UI** — Channels → Emails, drag-and-drop / WYSIWYG builder, media library, send test, preview  
+- **REST API** / **CLI** — only for documented operations (e.g. export, duplicate) if needed  
 
-Do NOT create or modify Mautic entities, configurations, or features by editing PHP files, configuration files, or the database directly.
-Always use only the Web UI, official REST API, or CLI commands as documented by Mautic.
-If actions are required using the UI, ask the user to perform them through the Mautic Admin interface or provide instructions for using the Mautic CLI.
+Do **not** edit Mautic PHP, raw config on disk, or the **database directly** to create emails or assets. All templates, blocks, From/sender settings, and media references must be created through the Admin UI (or official API/CLI as documented).
 
-## Overview
-Create and publish a professional welcome/onboarding email in Mautic using the WYSIWYG email builder with dynamic contact variables, company branding, and personalized content to engage new users and guide initial product setup.
+**No new application environment variables** are required for this task — only existing Mautic access (Admin UI, optional existing `MAUTIC_*` usage from MA02 as already configured).
 
-**Feature Type**: Technical Integration
+---
 
-**Business Value**: Establishes automated marketing communication that improves user activation rates, reduces churn, and delivers consistent brand experience to new users immediately after registration.
+## Audience & owners
 
-## Requirements
+| Role | Need |
+|------|------|
+| **New users (recipients)** | Clear greeting, value, one primary action, trust & support |
+| **Marketing & product managers (builders)** | Repeatable template, brand-safe layout, measurable CTAs, compliance |
 
-### Functional Requirements
-- **Email Template Creation**: Design professional welcome email using Mautic's WYSIWYG editor with drag-and-drop components
-- **Dynamic Content**: Include personalized variables (firstName, lastName, email, registrationDate) from contact records
-- **Brand Consistency**: Apply company branding including logo, colors, typography, and visual hierarchy
-- **Call-to-Action**: Include clear primary CTA directing users to complete profile or explore key features
-- **Content Structure**: Welcome message, value proposition, next steps, and support contact information
-- **Mobile Responsiveness**: Email must render properly across desktop, tablet, and mobile devices
-- **Deliverability Optimization**: Follow email best practices for spam score below 5 and high deliverability rates
+**Draft copy:** use your standard **AI Vibe Coding** / writing assistant (outside Mautic) to produce first drafts for each section, then **edit for brand, accuracy, and length** before pasting into the builder.
 
-### User Stories
-- **As a new user**, I want to receive a personalized welcome email so that I feel valued and understand next steps
-- **As a marketing manager**, I want to create branded emails so that all communications maintain consistent brand identity
-- **As a product manager**, I want to guide user onboarding so that activation rates improve and users find value quickly
+---
 
-### Technical Requirements
-- **Mautic Version**: 5.0+ with campaign builder and email editor capabilities
-- **Email Builder**: Use drag-and-drop WYSIWYG editor with template components
-- **Variable Integration**: Implement Mautic contact tokens for dynamic personalization
-- **Template Storage**: Save template for reuse and future modifications
-- **Testing Capability**: Send test emails to verify rendering and functionality
-- **Publishing Workflow**: Activate email for use in automated campaigns
+## Dependencies
 
-## Technical Specifications
+| Dependency | Check |
+|------------|--------|
+| **Mautic container** running | See `MA01-Mautic-Container-Setup.md` |
+| **Admin access** | Login to Mautic (e.g. `http://localhost:8080` in dev) |
+| **Campaign infra** | Segment/campaign plan exists or will use this template — see `MA03-Mautic-Create-Campaign.md` (**New Signups**) |
 
-### Dependencies
-- Completed Mautic container setup from `MA01-Mautic-Container-Setup.md`
-- Mautic admin user account with email creation permissions
-- Campaign infrastructure from `MA03-Mautic-Create-Campaign.md`
+---
 
-### Integration Points
-- **Contact Variables**: Connect to contact fields populated by Better Auth integration
-- **Campaign Triggers**: Email triggers when contact is added to "New Signups" segment
-- **Branding Assets**: Upload logo and brand assets to Mautic media library
+## Path: create a Template email
 
-### Email Configuration
-- **From Address**: Use verified domain email address for authentication compliance
-- **Subject Line**: Personalized welcome message with contact's first name
-- **Preheader Text**: Compelling preview text visible in email clients
-- **Template Components**: Header with logo, personalized greeting, value proposition, feature highlights, CTA button, footer with unsubscribe
-- **Contact Tokens**: `{contactfield=firstname}`, `{contactfield=lastname}`, `{contactfield=email}`
+1. **Channels → Emails → New**  
+2. Choose **Template** (reusable; campaigns attach this email to actions).  
+3. Open the **builder** — **drag blocks** (text, image, button, divider, social, etc.) in the **WYSIWYG** / layout editor (official Mautic 5+ email builder).
 
-### Environment Variables
-No new environment variables required - uses existing Mautic admin credentials.
+### Global email settings
 
-## Content Requirements
+| Setting | Guidance |
+|---------|-----------|
+| **From name / From address** | Use a **verified** sender on a domain with **SPF** and **DKIM** (and **DMARC** policy). Match what you configure under **Configuration → Email Settings** / mail transport. |
+| **Subject** | Personalized, e.g. `Welcome, {contactfield=firstname} — you’re in` |
+| **Preheader** | Complement the subject; visible in inbox previews; avoid repeating the subject verbatim |
 
-### Email Template Structure
-1. **Header Section**: Company logo, branded colors, consistent typography
-2. **Personalized Greeting**: "Welcome [FirstName]!" with dynamic contact variable
-3. **Welcome Message**: Brief, friendly introduction expressing excitement about their registration
-4. **Value Proposition**: 2-3 key benefits or features that highlight product value
-5. **Next Steps**: Clear guidance on what users should do first (complete profile, explore features, etc.)
-6. **Primary CTA**: Prominent button directing to specific action (e.g., "Complete Your Profile", "Explore Features")
-7. **Support Information**: Contact details or help resources for questions
-8. **Footer**: Company information, unsubscribe link, social media links
+Save frequently as **Draft** until tests pass.
 
-### Content Guidelines
-- **Tone**: Professional but friendly, welcoming and supportive
-- **Length**: Concise content that can be scanned quickly (under 200 words)
-- **Mobile-First**: Content hierarchy works on small screens
-- **Accessibility**: Alt text for images, sufficient color contrast, clear link text
+---
 
-## Security Considerations
-- **Email Authentication**: Ensure SPF, DKIM records configured for sending domain
-- **Unsubscribe Compliance**: Include mandatory unsubscribe link per CAN-SPAM requirements
-- **Data Privacy**: Handle contact variables according to GDPR/privacy regulations
-- **Link Safety**: All CTAs link to secure HTTPS endpoints within application domain
+## Content blocks (in order)
 
-## Performance Requirements
-- **Email Rendering**: Template must render within 3 seconds across major email clients
-- **Image Optimization**: Compress images to under 200KB total for fast loading
-- **Template Size**: Keep HTML under 100KB for optimal deliverability
-- **Mobile Performance**: Email loads and displays properly on mobile devices within 5 seconds
+Build top-to-bottom with **mobile-first** reading: single column where possible; tap-friendly CTA.
 
-## Prerequisites
-- `MA01-Mautic-Container-Setup.md` - Mautic container running with admin access
-- `MA03-Mautic-Create-Campaign.md` - Campaign structure and automation workflow established
+1. **Header** — Logo (upload via **Media** / image block); brand color band optional; keep **HTTPS** links only.  
+2. **Greeting** — One short line using tokens (below).  
+3. **Value** — Why they signed up / core benefit in **plain language** (see word budget).  
+4. **Next steps** — Bulleted or 2 short lines (get started, complete profile, explore X).  
+5. **Primary CTA** — Single prominent button → **HTTPS** destination (app, docs, or tracked Mautic link).  
+6. **Support** — One line (help email, help center link — HTTPS).  
+7. **Compliant footer** — Physical address / entity identification if required by law; **unsubscribe** / preference language; link to **privacy** policy.
 
-## Additional Context for AI Assistant
+---
 
-### Mautic Email Builder Navigation
-- Access email builder through Mautic admin panel at `http://localhost:8080/admin`
-- Navigate to Channels → Emails → New to create new email template
-- Use "Template" type for reusable templates, "Segment Email" for campaign integration
+## Contact tokens (from contact fields)
 
-### Dynamic Variable Implementation
-- Contact tokens use format `{contactfield=fieldname}` for database fields
-- Common variables: `{contactfield=firstname}`, `{contactfield=lastname}`, `{contactfield=email}`
-- Date formatting: `{contactfield=date_added|date('M j, Y')}` for registration date
+Use the **exact** aliases your Mautic install uses (adjust field aliases if yours differ).
 
-### Email Testing Workflow
-1. Create email template with placeholder content
-2. Add dynamic variables and personalization
-3. Send test email to personal email address
-4. Verify rendering across desktop and mobile
-5. Check spam score using Mautic's built-in analysis
-6. Publish email for campaign use
+- **First name:** `{contactfield=firstname}`
+- **Last name:** `{contactfield=lastname}`
+- **Email:** `{contactfield=email}`
+- **Registration / added date (formatted):** `{contactfield=date_added|date('M j, Y')}` — if your field alias differs (e.g. custom registration date), use that field instead; verify with a real contact.
 
-### Brand Integration
-- Upload company logo to Mautic media library before email creation
-- Use consistent color palette matching application branding
-- Apply same typography hierarchy used in main application
-- Maintain visual consistency with website and application interface
+**Tip:** Send **test** messages to contacts that have all fields populated so tokens don’t render empty.
 
-## Success Criteria
-- Email template created and saved in Mautic system
-- Dynamic contact variables populate correctly in test emails
-- Professional design matches brand guidelines and renders properly across devices
-- Email achieves spam score below 5 for optimal deliverability
-- Template ready for integration with automated welcome campaign
-- Test emails sent successfully with proper personalization
+---
+
+## Media & links
+
+- **Logo / images:** upload through Mautic **Media**; serve over **HTTPS**; **optimize** files (see budget below).  
+- **All links:** `https://` only; avoid redirects that strip tracking if you rely on Mautic click tracking.
+
+---
+
+## Guidelines & performance targets
+
+| Guideline | Target |
+|-----------|--------|
+| **Copy length** | **Under ~200 words** total body (excluding footer legal boilerplate if required). |
+| **Layout** | **Mobile-first**; readable font size; sufficient contrast (WCAG-minded). |
+| **Images** | **≤ ~200 KB total** image payload where possible for this template. |
+| **HTML size** | Aim **≤ ~100 KB** template HTML for simpler clients and faster loads. |
+| **Perceived load** | Aim **&lt; ~3 s** feel on fast desktop preview; **&lt; ~5 s** on typical mobile — avoid huge images and deep nesting. |
+| **Accessibility** | Meaningful **alt text** on images; button text that states action (not “click here” only). |
+| **Deliverability** | **SPF / DKIM** aligned to From domain; **unsubscribe** present and working; **privacy** link as per your policy. |
+
+---
+
+## Test → publish → integrate
+
+### Testing (before publish)
+
+1. **Save** draft.  
+2. **Send test** to internal inboxes (Gmail, Outlook, mobile client).  
+3. **Preview** desktop and **mobile** (builder preview + real devices).  
+4. Run content through your **spam-score** check (third-party or Mautic-adjacent tools); target **spam score &lt; 5** (tool-dependent scale).  
+5. Confirm **tokens** populate for a real contact record.
+
+### Publish
+
+1. Mark email **Published** when satisfied.  
+2. Attach this template to the **New Signups** campaign flow in `MA03` (campaign action → send this email).  
+3. Verify one end-to-end path: qualifying contact enters segment → email sends → links and unsubscribe work.
+
+---
+
+## Success criteria
+
+- [ ] Template created via **Channels → Emails → New → Template** using **drag blocks** / WYSIWYG only.  
+- [ ] **Verified From** + **personalized subject** + **preheader** set.  
+- [ ] Sections present: **header, greeting, value, next steps, primary CTA, support, compliant footer**.  
+- [ ] **Tokens** resolve correctly in test sends.  
+- [ ] Renders acceptably **cross-device**; **HTTPS** links; image/HTML budgets respected.  
+- [ ] **Unsubscribe / privacy** and **SPF/DKIM** practices aligned.  
+- [ ] Published and wired to **New Signups** campaign path; ready for production sends.
+
+---
+
+## Related
+
+- `MA01-Mautic-Container-Setup.md` — runtime  
+- `MA02` — API credentials (no new env vars for this doc)  
+- `MA03-Mautic-Create-Campaign.md` — **New Signups** campaign wiring  

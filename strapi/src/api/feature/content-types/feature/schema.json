@@ -1,0 +1,69 @@
+{
+	"kind": "collectionType",
+	"collectionName": "features",
+	"info": {
+		"singularName": "feature",
+		"pluralName": "features",
+		"displayName": "Feature",
+		"description": "Product features with media, category, ordering, and CTA"
+	},
+	"options": {
+		"draftAndPublish": true
+	},
+	"pluginOptions": {
+		"i18n": {
+			"localized": true
+		}
+	},
+	"attributes": {
+		"name": {
+			"type": "string",
+			"required": true,
+			"maxLength": 200
+		},
+		"slug": {
+			"type": "uid",
+			"targetField": "name",
+			"required": true
+		},
+		"shortDescription": {
+			"type": "richtext"
+		},
+		"longDescription": {
+			"type": "richtext"
+		},
+		"icon": {
+			"type": "media",
+			"multiple": false,
+			"required": false,
+			"allowedTypes": ["images"]
+		},
+		"featureImage": {
+			"type": "media",
+			"multiple": false,
+			"required": false,
+			"allowedTypes": ["images"]
+		},
+		"category": {
+			"type": "enumeration",
+			"enum": ["core", "advanced", "integrations", "security"],
+			"default": "core"
+		},
+		"priority": {
+			"type": "integer",
+			"default": 0,
+			"min": 0,
+			"max": 999999
+		},
+		"benefits": {
+			"type": "component",
+			"repeatable": true,
+			"component": "shared.benefit"
+		},
+		"cta": {
+			"type": "component",
+			"repeatable": false,
+			"component": "shared.cta"
+		}
+	}
+}
