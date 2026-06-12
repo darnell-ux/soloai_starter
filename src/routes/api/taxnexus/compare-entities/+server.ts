@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { compareCaliforniaEntities } from '$lib/server/taxnexus/compare-entities';
+import { compareEntityScenarios } from '$lib/server/taxnexus/compare-entities';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const ct = request.headers.get('content-type')?.toLowerCase() ?? '';
@@ -19,5 +19,5 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (!Number.isFinite(n) || n < 0 || n > 1e12) {
 		throw error(400, { message: 'invalid_net_income' });
 	}
-	return json(compareCaliforniaEntities(n));
+	return json(compareEntityScenarios(n));
 };

@@ -11,18 +11,23 @@
 	const noscriptSrc = $derived(
 		valid ? `https://www.googletagmanager.com/ns.html?id=${encodeURIComponent(id)}` : ''
 	);
+
+	/** Split `</scr` + `ipt>` so the Svelte compiler does not close the module script early. */
+	const headHtml = $derived(
+		!valid
+			? ''
+			: blockedUntilKlaro
+				? '<script type="text/plain" data-type="application/javascript" data-name="google-tag-manager">' +
+						snippet +
+						'</scr' +
+						'ipt>'
+				: '<script data-gtm-bootstrap="1">' + snippet + '</scr' + 'ipt>'
+	);
 </script>
 
 <svelte:head>
-	{#if valid}
-		{#if blockedUntilKlaro}
-			{@html
-				'<script type="text/plain" data-type="application/javascript" data-name="google-tag-manager">' +
-					snippet +
-					'</script>'}
-		{:else}
-			{@html '<script data-gtm-bootstrap="1">' + snippet + '</script>'}
-		{/if}
+	{#if headHtml}
+		{@html headHtml}
 	{/if}
 </svelte:head>
 

@@ -1,0 +1,142 @@
+================================================================================
+NUCAMP SOLOAI — CLAUDE CODE: COURSE SEQUENCE CODEBASE REVIEW (RUBRIC)
+================================================================================
+Repository: nucamp_soloai (SvelteKit + TypeScript)
+
+HOW TO USE
+----------
+1. Open this repository as the project root in Claude Code.
+2. Copy everything from "BEGIN PROMPT" through "END PROMPT" into a new
+   message (or @-mention this file if your workflow supports it).
+3. Let Claude Code read the codebase, run tests in the terminal when needed,
+   and produce the structured report below.
+4. Save the model's full answer to a file for upload, for example:
+      docs/COURSE-SEQUENCE-CLAUDE-CODE-REVIEW-OUTPUT.txt
+   To produce a PDF from Markdown you maintain yourself, you can paste the
+   report into a .md file and run the project's PDF tooling; see
+      docs/COURSE-SUBMISSION-REPORT.md
+   (section "Files to upload") and package.json scripts pdf:submission*.
+
+IMPORTANT
+---------
+- Evidence must cite real paths (and optional symbols or line ranges) from
+  this repo. Generic framework advice without file references is not enough.
+- "Production-ready" for coursework means: clear architecture, tests passing,
+  documented risks — not a claim that every enterprise control is satisfied.
+  Call out honest caveats (billing storage, CI depth, secrets handling, etc.).
+- Sub-agent *tasks* (active/completed) live in the Claude Code UI; the repo
+  holds *role definitions* under .claude/agents/. Report both: what is in git,
+  and what you infer or the human confirms from the panel.
+
+================================================================================
+BEGIN PROMPT
+================================================================================
+
+You are a staff-level reviewer. Perform a **course-sequence submission review**
+of this SvelteKit + TypeScript repository against the five criteria below.
+
+### Global rules
+1. Use tools to **read source files** under `src/`, `docs/`, `.claude/agents/`,
+   config roots (`vite.config.ts`, `tailwind.config.js`, `playwright.config.ts`,
+   `package.json`, CI under `.github/` if present).
+2. Prefer **terminal verification** for automated tests when possible:
+   - `npm run test:unit -- --run`   (Vitest)
+   - `npm run test:e2e`            (Playwright; may take longer)
+   If you cannot run commands, say so explicitly and rely on reading test
+   files plus `playwright.config.ts` / Vitest configs — but **running tests
+   is strongly preferred** for criterion 2.
+3. Every criterion section must include:
+   - **Verdict:** Meets rubric / Partially meets / Does not meet (with reason)
+   - **Evidence:** bullet list of file paths (and brief notes)
+   - **Gaps / risks:** what remains for production hardening (if any)
+
+---
+
+### Criterion 1 — Refactoring report (LLM-generated: resolved issues + improvements)
+
+Deliver an **LLM-style refactoring report** for *this* codebase:
+
+- Summarize **concrete improvements already present** (e.g. consent/GTM wiring,
+  Tailwind v4 + Vite plugin, DaisyUI install, analytics helpers, billing
+  routes, test layout) with **file paths**.
+- Separately list **top remaining refactor or risk items** (prioritized P0–P2)
+  with evidence — this shows intellectual honesty; "fully refactored" does not
+  mean zero debt.
+
+Reference if helpful (do not only paraphrase): `docs/REFACTORING-Master-Task-List.md`,
+`docs/code-review-billing-analytics-criteria.txt`.
+
+---
+
+### Criterion 2 — Automated testing (Playwright or similar; clear pass/fail)
+
+- Run **Vitest** and **Playwright** as above, or report blockers.
+- Paste a **concise transcript**: command(s), summary line (files passed,
+  tests passed), and duration if shown.
+- Name **which behaviors** are covered (smoke routes, auth redirect, i18n
+  switcher, 404, etc.) by pointing at **spec file paths** under `e2e/` or
+  Vitest `*.test.ts` locations.
+
+---
+
+### Criterion 3 — Claude Code sub-agents (panel: active or completed tasks)
+
+- List each file under `.claude/agents/*.md` with **one-line role summary**.
+- Read `docs/SA01-Claude-Code-SubAgents.md` for how roles map to workstreams.
+- For **active or completed sub-agent tasks**: state clearly that task state
+  is **UI-held** in Claude Code. Then either:
+  (a) summarize what the human states is on their panel, OR
+  (b) infer likely workstreams from recent git-focused areas **only if** the
+      human asked you to infer — default is (a).
+
+---
+
+### Criterion 4 — UI polish (transitions, responsive layout, design tokens)
+
+- **Transitions:** e.g. `docs/A08-Page-Transitions.md`,
+  `src/lib/components/PageTransition.svelte`, layout wiring, env flag
+  `PUBLIC_PAGE_TRANSITIONS_ENABLED` — does the implementation exist and respect
+  reduced motion where documented?
+- **Responsive layout:** shell layout, breakpoints, key pages (pricing, account).
+- **Design tokens:** `tailwind.config.js`, `src/app.css` CSS variables, DaisyUI
+  / typography/forms plugins — cite what is implemented.
+
+---
+
+### Criterion 5 — Final app integration (multilingual + authenticated + monetized)
+
+Trace **one coherent user journey** (e.g. locale → pricing → checkout provider
+choice → webhook) and cite:
+
+- **Multilingual:** Paraglide / `messages/*.json` / `src/hooks.server.ts`
+- **Authenticated:** Better Auth — session, login/signup/account routes
+- **Monetized:** pricing UI, Stripe/Lemon API routes, billing persistence
+  (e.g. JSON store) — note operational caveats honestly.
+
+---
+
+### Closing (mandatory)
+
+1. **Executive summary** — 5–8 sentences for an instructor.
+2. **Submission attestation paragraph** — Confirm that the project reflects
+   strong refactor + test discipline and integrated features, and name any
+   **explicit non-claims** (e.g. "not asserting SOC2-ready production").
+3. **Suggested filename** for saving this report:
+   `docs/COURSE-SEQUENCE-CLAUDE-CODE-REVIEW-OUTPUT.txt`
+
+================================================================================
+END PROMPT
+================================================================================
+
+AFTER YOU SAVE THE OUTPUT
+-------------------------
+- Upload the .txt as required by the course portal, **or**
+- Convert to PDF using your preferred tool, **or**
+- Merge key excerpts into `docs/COURSE-SUBMISSION-REPORT.md` and run:
+      npm run pdf:submission
+  so `docs/COURSE-SUBMISSION-REPORT.pdf` includes both your static report and
+  Claude's review (edit the Markdown first so you are not duplicating blindly).
+
+================================================================================
+END OF FILE
+================================================================================

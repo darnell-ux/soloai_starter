@@ -1,0 +1,164 @@
+================================================================================
+NUCAMP SOLOAI — COURSE SEQUENCE SUBMISSION READINESS REVIEW
+================================================================================
+Repository: nucamp_soloai (SvelteKit + TypeScript)
+Document role: Evidence-based checklist for instructor / Claude Code review.
+Generated: 2026-05-02 UTC (regenerate after major changes)
+================================================================================
+
+Use this file (or the matching PDF bundle) for upload. It maps each required
+criterion to concrete repository artifacts and test output. It does NOT
+replace a signed production attestation; note caveats in Section 7.
+
+--------------------------------------------------------------------------------
+1. REFACTORING REPORT — Resolved issues & improvements (LLM-style summary)
+--------------------------------------------------------------------------------
+
+Evidence-backed improvements present in the codebase (representative paths):
+
+A) Analytics & consent (TC01–TC03 style)
+   - GTM + Consent Mode v2 + dataLayer helpers: src/lib/analytics/dataLayer.ts,
+     consentHeadScript.ts, gtmBootstrap.ts, klaroConfig.ts
+   - Layout wiring: src/routes/+layout.svelte, +layout.server.ts; components
+     under src/lib/components/tracking/
+   - Login/signup analytics events + Hotjar masking attributes on password
+     fields: src/routes/login/+page.svelte, signup, account
+
+B) Billing / review documentation
+   - Instructor criteria write-up: docs/code-review-billing-analytics-criteria.txt
+
+C) Testing discipline & refactor safety rails
+   - TS00–TS05 guides: docs/TS00-*.md through docs/TS05-*.md
+   - Refactor backlog prompt: docs/REFACTORING-Master-Task-List.md
+
+D) Build / CSS toolchain stability
+   - Tailwind v4 entry: src/app.css (@import "tailwindcss"; @config)
+   - Vite plugin: @tailwindcss/vite in vite.config.ts
+   - PostCSS: autoprefixer only in postcss.config.js (Tailwind via Vite)
+   - DaisyUI declared in tailwind.config.js and installed as devDependency
+     (fixes prior "Cannot find module 'daisyui'" dev-server failures)
+
+E) GTM / consent Svelte edge cases
+   - Inline script HTML built with string concat (avoid </script> terminating
+     Svelte module script): ConsentHead.svelte, GoogleTagManager.svelte
+
+Ongoing refactor posture (not “all debt closed”):
+   - Use docs/REFACTORING-Master-Task-List.md for prioritized backlog.
+   - CI still minimal in .github/workflows/ci.yml (extend with check + tests).
+
+--------------------------------------------------------------------------------
+2. AUTOMATED TESTING — Pass / fail output
+--------------------------------------------------------------------------------
+
+Vitest (unit) — captured 2026-05-02 on this machine:
+  Command: npx vitest run
+  Result:  PASS
+  Test Files  7 passed (7)
+  Tests         20 passed (20)
+  Duration      ~0.45s (varies by hardware)
+
+Playwright (E2E) — last full green run in project history:
+  Command: npm run test:e2e  (starts webServer per playwright.config.ts)
+  Result:  12 passed (~16s) — routes smoke, /account redirect, language
+            switcher, unknown route 404.
+  Re-run before final submission: npm run test:e2e
+
+Typecheck:
+  Command: npm run check
+  Use before merge; not pasted here (long output).
+
+--------------------------------------------------------------------------------
+3. CLAUDE CODE SUB-AGENTS — Roles (repo-stored “panel” definitions)
+--------------------------------------------------------------------------------
+
+Specialist prompts live under:  .claude/agents/
+
+  1. database-prisma.md     — persistence (SQLite auth, JSON billing, Prisma if adopted)
+  2. auth-security.md       — Better Auth, webhooks, secrets
+  3. ui-component.md        — Svelte 5, Tailwind, DaisyUI, a11y, data-testid
+  4. api-services.md        — +server routes, Strapi/OpenAI integrations
+  5. payment-systems.md     — Stripe, Lemon, webhooks, locale checkout
+  6. i18n-translation.md      — Paraglide, messages/*.json
+  7. testing.md             — Vitest, Playwright, TS00–TS05
+  8. deployment-build.md    — build, CI, Docker notes
+
+Index / how to use: docs/SA01-Claude-Code-SubAgents.md
+
+Note: “Active vs completed” tasks live in Claude Code UI, not in git. These
+files are the reusable role definitions for that panel.
+
+--------------------------------------------------------------------------------
+4. UI POLISH — Transitions, responsive layout, design tokens
+--------------------------------------------------------------------------------
+
+Route transitions (feature-flagged):
+  - Spec: docs/A08-Page-Transitions.md
+  - Implementation: src/lib/components/PageTransition.svelte,
+    src/routes/+layout.svelte (+layout.server.ts pageTransitionsEnabled)
+  - Env: PUBLIC_PAGE_TRANSITIONS_ENABLED=true (optional)
+  - Reduced motion + localStorage override documented in A08
+
+Responsive layout & components:
+  - Layout shell: src/routes/+layout.svelte (flex column, main landmark)
+  - Tailwind breakpoints / tokens: tailwind.config.js theme.extend,
+    src/app.css :root CSS variables (--color-brand, surfaces)
+
+DaisyUI / component polish:
+  - tailwind.config.js plugins: forms, typography, daisyui
+
+--------------------------------------------------------------------------------
+5. FINAL APP INTEGRATION — Multilingual + auth + monetization
+--------------------------------------------------------------------------------
+
+Multilingual (Paraglide):
+  - Runtime: src/lib/paraglide/* (generated from project.inlang)
+  - Messages: messages/*.json; hooks: src/hooks.server.ts (paraglide middleware)
+  - Locale-based checkout: src/lib/server/billing/payment-provider.ts
+    (base locale en → Stripe; others → Lemon Squeezy)
+
+Authentication:
+  - Better Auth: src/lib/auth.ts, auth-client, hooks server session,
+    routes: login, signup, forgot-password, account
+
+Monetization:
+  - Pricing UI + checkout POST: src/routes/pricing/*
+  - APIs: src/routes/api/stripe/checkout, api/stripe/webhook,
+    api/lemonsqueezy/checkout, api/lemonsqueezy/webhook
+  - Billing persistence: src/lib/server/stripe/billing-store.ts (JSON under
+    data/ — document operational backup for production)
+
+Together:
+  - Layout passes locale + analytics context: +layout.server.ts
+  - Account dashboard surfaces subscription from billing store: account/*
+
+--------------------------------------------------------------------------------
+6. PRODUCTION-READINESS CAVEATS (honest scope)
+--------------------------------------------------------------------------------
+
+- “Production-ready” for coursework means: typed app, tests passing locally,
+  documented env, clear integration boundaries. Hardening items may remain:
+  move billing JSON to managed DB, expand CI (check + unit + e2e), tighten
+  CSP in production, secrets rotation, Stripe/Lemon live keys in vault only.
+
+- PDF bundle: run  npm run pdf:submission  (requires Chrome; see script).
+
+--------------------------------------------------------------------------------
+7. FILES FOR UPLOAD
+--------------------------------------------------------------------------------
+
+  Primary narrative (Markdown):  docs/COURSE-SUBMISSION-REPORT.md
+  Recommended PDF (short):       docs/COURSE-SUBMISSION-REPORT.pdf
+                                 npm run pdf:submission
+
+  Plain text checklist (this):   docs/SUBMISSION-COURSE-SEQUENCE-READINESS.txt
+
+  Optional full appendix PDF:    docs/Nucamp-SoloAI-Submission-Bundle.pdf
+                                 npm run pdf:submission-bundle
+
+  Claude Code rubric prompt:     docs/CLAUDE-CODE-COURSE-SEQUENCE-REVIEW-PROMPT.txt
+  (paste into Claude Code; save reply as)
+  Review output (you create):     docs/COURSE-SEQUENCE-CLAUDE-CODE-REVIEW-OUTPUT.txt
+
+================================================================================
+END OF SUBMISSION READINESS REVIEW
+================================================================================

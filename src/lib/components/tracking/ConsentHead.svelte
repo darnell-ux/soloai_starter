@@ -6,6 +6,6 @@
 </script>
 
 <svelte:head>
-	<!-- String concat avoids Vite scan misparsing `${...}` inside {@html} -->
-	{@html '<script data-consent-default="1">' + inline + '</script>'}
+	<!-- Split closing tag so the compiler does not terminate the module script. -->
+	{@html '<script data-consent-default="1">' + inline + '</scr' + 'ipt>'}
 </svelte:head>

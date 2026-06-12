@@ -1,4 +1,4 @@
-x-soloai-volumes:
+Trx-soloai-volumes:
   &soloai-volumes
   - ${BASE_PATH}/mautic/config:/var/www/html/config:z
   - ${BASE_PATH}/mautic/logs:/var/www/html/var/logs:z
