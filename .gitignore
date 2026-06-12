@@ -1,39 +1,51 @@
-node_modules
+# === SvelteKit & Core Framework Basics ===
+.svelte-kit/
+node_modules/
+build/
+dist/
+.cache/
+.output/
+.vercel/
+.netlify/
+.wrangler/
 
-# Output
-dist
-.output
-.vercel
-.netlify
-.wrangler
-/.svelte-kit
-/build
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Env
+# === Secrets & Configurations (CRITICAL) ===
 .env
 .env.*
 !.env.example
 !.env.test
+*.pem
+*.key
 
-# Vite
+# === Local Docker, DB, & Third-Party App Overrides ===
+mysql-data/
+mautic-docroot/
+pet-next-of-kin/
+data/*.json
+
+# === Strapi Build Artifacts ===
+strapi/.cache/
+strapi/build/
+strapi/dist/
+
+# === Large Archives and System Garbage ===
+*.zip
+*-snapshot-*.zip
+.DS_Store
+Thumbs.db
+
+# === Vite ===
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Playwright
+# === Playwright ===
 /test-results/
 /playwright-report/
+Playwright-report/
 /blob-report/
 playwright/.cache/
-# Paraglide
+
+# === Paraglide / i18n ===
 src/lib/paraglide
 project.inlang/cache/
-
-# Mautic sync state (local)
-data/mautic-contact-ids.json
-# Stripe billing (local; replace with DB in production)
-data/stripe-billing.json
-data/stripe-webhook-events.json
+.paraglide/
