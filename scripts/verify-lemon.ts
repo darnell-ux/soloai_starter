@@ -1,10 +1,13 @@
 import 'dotenv/config';
-import { getEnv, validateEnvOrExit } from '../src/lib/server/env';
-import { verifyLemonSqueezyApiAccess } from '../src/lib/server/lemon/config';
+import { ensureServerConfig } from '../src/lib/server/config';
+import {
+	isLemonSqueezyEnabled,
+	verifyLemonSqueezyApiAccess
+} from '../src/lib/server/billing/lemonsqueezy';
 
 async function main(): Promise<void> {
-	validateEnvOrExit();
-	if (!getEnv().LEMON_SQUEEZY_ENABLED) {
+	ensureServerConfig();
+	if (!isLemonSqueezyEnabled()) {
 		console.info('[lemonsqueezy] verification skipped (LEMON_SQUEEZY_* not configured)');
 		process.exit(0);
 		return;

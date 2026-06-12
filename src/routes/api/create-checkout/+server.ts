@@ -1,9 +1,11 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { resolveDemoPlan } from '$lib/server/billing/demo-plan-targets';
-import { paymentProcessorForLocale } from '$lib/server/billing/payment-provider';
-import { getEnv } from '$lib/server/env';
-import { createLemonHostedCheckout } from '$lib/server/lemon/create-checkout-session';
+import { createLemonHostedCheckout } from '$lib/server/billing/lemonsqueezy';
+import {
+	isPaymentProcessorConfigured,
+	paymentProcessorForLocale
+} from '$lib/server/billing/payment-provider';
 import { createAnonymousStripeSubscriptionCheckout } from '$lib/server/stripe/create-checkout';
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -32,7 +34,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (!priceId) {
 			throw error(400, { message: 'missing_stripe_price' });
 		}
-		if (!getEnv().STRIPE_ENABLED) {
+		if (!isPaymentProcessorConfigured('stripe')) {
 			throw error(503, { message: 'stripe_unconfigured' });
 		}
 		const r = await createAnonymousStripeSubscriptionCheckout(priceId);
@@ -48,7 +50,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (!variantId) {
 		throw error(400, { message: 'missing_lemon_variant' });
 	}
-	if (!getEnv().LEMON_SQUEEZY_ENABLED) {
+	if (!isPaymentProcessorConfigured('lemonsqueezy')) {
 		throw error(503, { message: 'lemonsqueezy_unconfigured' });
 	}
 	const lr = await createLemonHostedCheckout({ variantId });
