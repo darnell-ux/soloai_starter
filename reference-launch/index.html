@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TaxNexus — Know your California tax exposure before the FTB does</title>
+<meta name="description" content="Most Amazon sellers don't find out California wants taxes from them until a notice lands. Run a free check to see exactly where you're exposed — plain English, no card, no signup." />
+
+<!-- ============================================================= -->
+<!-- BUILD NOTES (remove before final publish if you like)         -->
+<!-- 1. §3 founder note is filled with the real 2020 FTB story.   -->
+<!--    Confirm you're comfortable publishing the $4,500 figure    -->
+<!--    and the personal detail before going live.                 -->
+<!-- 2. Every CTA points to /audit. Confirm that's your real route -->
+<!--    for the free Audit, or find-and-replace href="/audit".     -->
+<!-- 3. Confirm pricing: $39 Guard / $119 Aggregator.              -->
+<!-- ============================================================= -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+
+<style>
+  :root{
+    --paper:    #ECE7DA;  /* warm document stock                */
+    --paper-2:  #E3DCC9;  /* deeper panel / form fill           */
+    --ink:      #211F1A;  /* near-black warm body text          */
+    --olive:    #54583E;  /* olive drab — structure, brackets   */
+    --olive-dp: #3A3D2A;  /* deep olive — strong headings       */
+    --stamp:    #A33028;  /* stamp red — the one bold thing      */
+    --stamp-dp: #832720;
+    --muted:    #6E6C5B;  /* captions, secondary                 */
+    --line:     #C9C2AE;  /* hairline rules                      */
+
+    --sans:'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --mono:'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+    --serif:'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+
+    --col: 42rem;         /* reading measure */
+    --wide: 64rem;        /* wide panels     */
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} }
+
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:1.0625rem;
+    line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* faint document grain so the paper reads as paper, not flat beige */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+    background-image:radial-gradient(var(--line) .5px, transparent .5px);
+    background-size:5px 5px;
+    mix-blend-mode:multiply;
+  }
+
+  a{color:inherit}
+  p{margin:0 0 1.05em}
+  strong{font-weight:600}
+
+  .wrap{max-width:var(--wide);margin:0 auto;padding:0 1.5rem;position:relative;z-index:1}
+  .measure{max-width:var(--col)}
+
+  /* ---------- skip link ---------- */
+  .skip{position:absolute;left:-999px;top:0;background:var(--ink);color:var(--paper);
+    padding:.6rem 1rem;font-family:var(--mono);font-size:.8rem;z-index:50}
+  .skip:focus{left:1rem;top:1rem}
+
+  /* ---------- type system ---------- */
+  .eyebrow{
+    font-family:var(--mono);font-size:.74rem;font-weight:500;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--olive);
+    display:flex;align-items:center;gap:.6rem;margin:0 0 1.1rem;
+  }
+  .eyebrow::after{content:"";flex:1;height:1px;background:var(--line);max-width:5rem}
+
+  h1,h2,h3{font-family:var(--sans);line-height:1.12;letter-spacing:-.015em;margin:0}
+  h1{font-weight:700;font-size:clamp(2.3rem,5.6vw,4.1rem)}
+  h2{font-weight:600;font-size:clamp(1.7rem,3.4vw,2.55rem);color:var(--olive-dp)}
+  h3{font-weight:600;font-size:1.18rem}
+
+  /* ---------- registration / crop-mark brackets ---------- */
+  .marks{position:relative}
+  .marks::before,.marks::after{
+    content:"";position:absolute;width:1.15rem;height:1.15rem;border:2px solid var(--olive);
+  }
+  .marks::before{top:0;left:0;border-right:0;border-bottom:0}
+  .marks::after{bottom:0;right:0;border-left:0;border-top:0}
+  .marks .m2{position:absolute;inset:0;pointer-events:none}
+  .marks .m2::before,.marks .m2::after{
+    content:"";position:absolute;width:1.15rem;height:1.15rem;border:2px solid var(--olive)}
+  .marks .m2::before{top:0;right:0;border-left:0;border-bottom:0}
+  .marks .m2::after{bottom:0;left:0;border-right:0;border-top:0}
+
+  /* ---------- buttons ---------- */
+  .btn{
+    display:inline-flex;align-items:center;gap:.6rem;cursor:pointer;
+    font-family:var(--mono);font-weight:500;font-size:.92rem;letter-spacing:.02em;
+    text-decoration:none;border:2px solid var(--stamp);
+    padding:.85rem 1.5rem;background:var(--stamp);color:#F6F2E8;
+    transition:transform .12s ease, background .15s ease;
+  }
+  .btn::before{content:"▸";font-size:.8em;opacity:.85}
+  .btn:hover{background:var(--stamp-dp);border-color:var(--stamp-dp);transform:translateY(-1px)}
+  .btn:focus-visible{outline:3px solid var(--olive-dp);outline-offset:3px}
+
+  .btn-ghost{
+    background:transparent;color:var(--olive-dp);border-color:var(--olive);
+  }
+  .btn-ghost::before{content:"▸";opacity:.7}
+  .btn-ghost:hover{background:var(--olive);color:var(--paper);border-color:var(--olive);transform:translateY(-1px)}
+
+  .micro{font-family:var(--mono);font-size:.78rem;color:var(--muted);margin-top:.9rem;letter-spacing:.01em}
+
+  /* ---------- top document rail ---------- */
+  .rail{
+    border-bottom:1px solid var(--line);background:var(--paper);
+    position:relative;z-index:2;
+  }
+  .rail .wrap{display:flex;justify-content:space-between;align-items:center;
+    gap:1rem;padding-top:.7rem;padding-bottom:.7rem;
+    font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--muted);flex-wrap:wrap}
+  .rail b{color:var(--olive-dp);font-weight:600}
+
+  /* sticky mini-bar appears after hero */
+  .sticky{
+    position:fixed;top:0;left:0;right:0;z-index:40;background:var(--ink);color:var(--paper);
+    transform:translateY(-110%);transition:transform .25s ease;
+    border-bottom:2px solid var(--stamp);
+  }
+  .sticky.show{transform:translateY(0)}
+  .sticky .wrap{display:flex;justify-content:space-between;align-items:center;gap:1rem;
+    padding-top:.55rem;padding-bottom:.55rem}
+  .sticky .lbl{font-family:var(--mono);font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--paper);opacity:.85}
+  .sticky .btn{padding:.55rem 1.1rem;font-size:.82rem}
+  @media (prefers-reduced-motion:reduce){.sticky{transition:none}}
+
+  /* ---------- sections ---------- */
+  section{padding:clamp(3.4rem,7vw,5.6rem) 0;position:relative;z-index:1}
+  .band{background:var(--paper-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .band-ink{background:var(--olive-dp);color:#E9E5D7;border:0}
+  .band-ink h2{color:#F2EEE2}
+  .band-ink .eyebrow{color:#C9CBAE}
+  .band-ink .eyebrow::after{background:rgba(255,255,255,.2)}
+
+  /* ---------- HERO ---------- */
+  .hero{padding-top:clamp(3rem,6vw,4.5rem);padding-bottom:clamp(3.4rem,7vw,5.6rem)}
+  .cover{
+    background:var(--paper);border:1px solid var(--line);
+    padding:clamp(1.8rem,4vw,3.2rem);position:relative;
+  }
+  .cover .stamp{
+    position:absolute;top:1.6rem;right:1.4rem;transform:rotate(7deg);
+    border:2px solid var(--stamp);color:var(--stamp);
+    font-family:var(--mono);font-size:.7rem;font-weight:600;letter-spacing:.12em;
+    padding:.4rem .7rem;text-transform:uppercase;opacity:.85;line-height:1.3;text-align:center;
+  }
+  .hero h1{margin:.2rem 0 1.1rem;max-width:18ch}
+  .hero .lede{font-size:1.16rem;max-width:46ch;color:var(--ink)}
+  .hero .cta-row{margin-top:1.8rem}
+  @media(max-width:540px){ .cover .stamp{position:static;display:inline-block;transform:rotate(-2deg);margin-bottom:1.2rem} }
+
+  /* ---------- two-agency form panel (§2) ---------- */
+  .agencies{
+    display:grid;grid-template-columns:1fr 1fr;gap:0;margin:1.8rem 0 .4rem;
+    border:1.5px solid var(--olive);background:var(--paper);
+  }
+  .agencies .cell{padding:1.4rem 1.5rem}
+  .agencies .cell:first-child{border-right:1.5px solid var(--olive)}
+  .agencies .tag{font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--stamp);font-weight:600;margin-bottom:.5rem}
+  .agencies h3{margin-bottom:.4rem}
+  .agencies p{margin:0;font-size:.98rem}
+  @media(max-width:600px){
+    .agencies{grid-template-columns:1fr}
+    .agencies .cell:first-child{border-right:0;border-bottom:1.5px solid var(--olive)}
+  }
+
+  .callout{
+    border-left:3px solid var(--stamp);padding:.2rem 0 .2rem 1.2rem;margin:1.6rem 0;
+    font-size:1.08rem;color:var(--olive-dp);font-weight:500;
+  }
+
+  /* ---------- founder note (§3) ---------- */
+  .note{
+    background:var(--paper);border:1px solid var(--line);
+    padding:clamp(1.8rem,4vw,3rem);position:relative;font-family:var(--serif);font-size:1.12rem;line-height:1.66;
+  }
+  .note p{margin-bottom:1.1em}
+  .note .sig{font-family:var(--mono);font-size:.86rem;letter-spacing:.04em;color:var(--olive-dp);
+    margin-top:1.6rem;line-height:1.5;font-style:normal}
+  .note .sig b{display:block;font-weight:600;font-size:1.4rem;font-family:var(--serif);letter-spacing:-.01em;margin-bottom:.2rem}
+
+  /* ---------- free-audit checklist (§4) ---------- */
+  .checklist{list-style:none;margin:1.6rem 0;padding:0;display:grid;gap:1rem}
+  .checklist li{display:grid;grid-template-columns:auto 1fr;gap:.9rem;align-items:start}
+  .checklist .mk{font-family:var(--mono);color:var(--stamp);font-weight:600;font-size:1.05rem;line-height:1.5}
+  .checklist b{color:var(--olive-dp)}
+
+  /* ---------- camps (§5) ---------- */
+  .camps{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin:1.8rem 0}
+  .camp{padding:1.4rem 1.5rem;border:1px solid var(--line);background:var(--paper)}
+  .camp.bad{border-color:var(--stamp);background:#F2E2DA}
+  .camp.good{border-color:var(--olive)}
+  .camp .tag{font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;margin-bottom:.6rem}
+  .camp.bad .tag{color:var(--stamp-dp)}
+  .camp.good .tag{color:var(--olive-dp)}
+  .camp p{margin:0;font-size:.98rem}
+  @media(max-width:640px){.camps{grid-template-columns:1fr}}
+
+  /* ---------- pricing (§7) ---------- */
+  .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:1.1rem;margin:2rem 0 1rem}
+  .tier{background:var(--paper);border:1px solid var(--line);padding:1.6rem 1.4rem;display:flex;flex-direction:column}
+  .tier.feature{border:2px solid var(--olive);position:relative}
+  .tier.feature::after{content:"START HERE";position:absolute;top:-.7rem;left:1.3rem;
+    background:var(--olive);color:var(--paper);font-family:var(--mono);font-size:.64rem;
+    letter-spacing:.14em;padding:.2rem .55rem;font-weight:600}
+  .tier .q{font-family:var(--serif);font-style:italic;color:var(--muted);font-size:1rem;margin-bottom:.9rem}
+  .tier .name{font-family:var(--mono);font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--olive-dp);font-weight:600}
+  .tier .price{font-family:var(--sans);font-weight:700;font-size:1.9rem;color:var(--ink);margin:.2rem 0 1rem;letter-spacing:-.02em}
+  .tier .price span{font-size:.9rem;font-weight:500;color:var(--muted);font-family:var(--mono);letter-spacing:0}
+  .tier p{font-size:.95rem;flex:1}
+  .tier .btn,.tier .btn-ghost{width:100%;justify-content:center;margin-top:.6rem;padding:.7rem 1rem;font-size:.84rem}
+  .tiers-foot{font-family:var(--mono);font-size:.82rem;color:var(--muted);text-align:center;letter-spacing:.01em}
+  @media(max-width:760px){.tiers{grid-template-columns:1fr}}
+
+  /* ---------- FAQ (§8) ---------- */
+  .faq{margin:1.8rem 0 0;border-top:1px solid var(--line)}
+  .faq details{border-bottom:1px solid var(--line)}
+  .faq summary{
+    cursor:pointer;list-style:none;padding:1.15rem 2.2rem 1.15rem 0;position:relative;
+    font-weight:600;color:var(--olive-dp);font-size:1.06rem;
+  }
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";position:absolute;right:.2rem;top:1rem;
+    font-family:var(--mono);font-size:1.3rem;color:var(--stamp);transition:transform .18s ease}
+  .faq details[open] summary::after{content:"–"}
+  .faq summary:focus-visible{outline:2px solid var(--olive-dp);outline-offset:3px}
+  .faq .ans{padding:0 0 1.3rem;max-width:54ch}
+  .faq .ans p{margin:0;color:var(--ink)}
+
+  /* ---------- final CTA (§9) ---------- */
+  .final{text-align:center}
+  .final .cover{max-width:var(--col);margin:0 auto}
+  .final h2{margin-bottom:1rem}
+  .final p{max-width:40ch;margin:0 auto 1.6rem;color:var(--ink)}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid var(--line);background:var(--paper);padding:2.4rem 0;position:relative;z-index:1}
+  footer .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+    font-family:var(--mono);font-size:.74rem;color:var(--muted);letter-spacing:.04em}
+  footer b{color:var(--olive-dp);font-weight:600;display:block;margin-bottom:.3rem;letter-spacing:.1em;text-transform:uppercase}
+  footer .disc{max-width:46ch;line-height:1.6}
+</style>
+</head>
+<body>
+
+<a class="skip" href="#audit-info">Skip to the free check</a>
+
+<!-- ===== top document rail ===== -->
+<div class="rail">
+  <div class="wrap">
+    <span><b>Consult&nbsp;Solutions</b> · Field&nbsp;Dossier</span>
+    <span>File: CA-TAX-EXPOSURE</span>
+    <span>Rev 2026.06</span>
+  </div>
+</div>
+
+<!-- ===== sticky mini-bar ===== -->
+<div class="sticky" id="sticky" aria-hidden="true">
+  <div class="wrap">
+    <span class="lbl">TaxNexus · California exposure check</span>
+    <a class="btn" href="/audit">Run my free exposure check</a>
+  </div>
+</div>
+
+<main>
+
+<!-- ================= §1 HERO ================= -->
+<section class="hero" id="top">
+  <div class="wrap">
+    <div class="cover marks"><span class="m2"></span>
+      <div class="stamp">Status<br>Unchecked</div>
+      <p class="eyebrow">§01 — Field Notice</p>
+      <h1>Know your California tax exposure before the FTB does.</h1>
+      <p class="lede">Most Amazon sellers don't find out California wants taxes from them until a notice lands — sometimes years later, sometimes for a lot. Run a free check to see exactly where you're exposed, what it actually means, and whether it's a five-minute fix or time to call a pro. Plain English. No account, no card.</p>
+      <div class="cta-row">
+        <a class="btn" href="/audit">Run my free exposure check</a>
+        <p class="micro">Takes about two minutes. No credit card, no signup to see your result.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= §2 THE MECHANISM ================= -->
+<section class="band">
+  <div class="wrap measure">
+    <p class="eyebrow">§02 — How it happens</p>
+    <h2>The tax you never agreed to</h2>
+    <p style="margin-top:1.2rem">Here's how it happens, and why almost nobody sees it coming.</p>
+    <p>You sell on Amazon. To ship fast, Amazon moves your inventory into its own warehouses — and you don't get to choose which ones. Some of them are in California: <strong>ONT2, OAK4, SMF3</strong>, and others.</p>
+    <p>The moment your products sit in a California warehouse, the state considers you to have a physical presence there. In tax language, that's <strong>nexus</strong> — and nexus is the switch that lets California tax you. You didn't move there. You didn't sign anything. An algorithm placed a box in a building, and a tax obligation came with it.</p>
+    <p>And here's the part that catches even careful sellers: it's two different taxes, run by two different agencies.</p>
+  </div>
+
+  <div class="wrap" style="max-width:var(--col)">
+    <div class="agencies">
+      <div class="cell">
+        <p class="tag">Agency 01 — FTB</p>
+        <h3>Franchise Tax Board</h3>
+        <p>Wants the <strong>$800 minimum franchise tax</strong> — owed for the privilege of "doing business" in California, whether you made a profit or not.</p>
+      </div>
+      <div class="cell">
+        <p class="tag">Agency 02 — CDTFA</p>
+        <h3>Dept. of Tax &amp; Fee Admin.</h3>
+        <p>Handles <strong>sales and use tax</strong> — a separate obligation, with its own rules, run by an entirely different office.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap measure">
+    <p class="callout">"But Amazon collects sales tax for me." True — Amazon remits sales tax as a marketplace facilitator, so most sellers assume they're fully covered. They're not.</p>
+    <p>Income and franchise tax aren't Amazon's job, and Amazon doesn't touch them. That gap is exactly where the surprise bill lives.</p>
+    <p>And the data's already out there. Amazon hands the state a list of who's storing inventory in California; the two tax agencies compare notes; the bill gets built from numbers you never submitted. Nobody sends you a heads-up — the first thing most sellers hear is a notice in the mail, often for several years at once, with a deadline and language that makes your stomach drop.</p>
+    <p>If any of this is the first you're hearing of it: that's the point. You're not behind because you were careless. You're behind because the system never told you.</p>
+  </div>
+</section>
+
+<!-- ================= §3 FOUNDER NOTE ================= -->
+<section>
+  <div class="wrap" style="max-width:var(--col)">
+    <p class="eyebrow">§03 — From the founder</p>
+    <h2 style="margin-bottom:1.6rem">I'm not a tax firm. I'm a seller this happened to.</h2>
+
+    <div class="note marks"><span class="m2"></span>
+      <p>My name's Darnell. I'm an Amazon seller, same as you — and before that, a Marine and a federal cybersecurity officer, which mostly means I'm hard to spook and I read the fine print. So when I tell you this one got me anyway, take it seriously.</p>
+
+      <p>Back in 2020, stuck at home like everybody else, I joined Amazon's FBA program to make a little extra money during lockdown. I didn't move much — a modest side hustle, nothing close to a real business. And like a lot of sellers, I figured Amazon handled the tax side of things; I'd never even heard of the Franchise Tax Board. Then one day a letter showed up from them: an overdue bill I'd never been warned about and never saw coming. My first thought was the one you might be having right now — is this even real, or some kind of shakedown?</p>
+
+      <p>I didn't get long to wonder. They'd sent the bill and started the garnishment the same day — no grace period, no window — and payday happened to fall right behind it. The first real proof was a noticeably smaller check. They kept most of my tax refund, too. Nobody ever offered me a payment plan or a chance to work something out — they just started taking it. By the time it was done it came to around $4,500 with penalties, pulled from my pay a percentage at a time for about six months.</p>
+
+      <p>And the timing. I'd just moved into a new place — first month, last month, security deposit all laid out — so most of my cushion was already gone. It still makes me angry, not because I owed nothing, but because of how I found out: a letter, and then a smaller paycheck, with no warning and no way to soften the landing.</p>
+
+      <p>So I did what I do — I put my head down and learned the actual mechanics. How nexus gets triggered. Which agency wants what. What's a real obligation versus what's just noise. And the thing that stuck with me wasn't the money. It was that a two-minute heads-up, months earlier, would have changed the whole story.</p>
+
+      <p>So I built the tool I wish I'd had before that letter showed up — something that just tells you, plainly, where you stand. That's all TaxNexus is: the heads-up nobody gave me.</p>
+
+      <p>One thing I'll always be straight with you about: I'm not a CPA, and this isn't tax advice. If you're staring down a six-figure notice or an audit, you want a real professional in your corner — and the tool will tell you, honestly, when you've crossed into that territory. For everything upstream of that — the "am I even exposed, and how bad is it?" question — that's exactly what this is for.</p>
+
+      <p class="sig"><b>— Darnell</b>Founder · TaxNexus / Consult Solutions</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= §4 WHAT YOU GET FREE ================= -->
+<section class="band" id="audit-info">
+  <div class="wrap measure">
+    <p class="eyebrow">§04 — The free Audit</p>
+    <h2>What you get, for free, in about two minutes</h2>
+    <p style="margin-top:1.2rem">No jargon, no homework, no card. The free Audit answers the only question that matters right now: <strong>am I exposed, and how bad is it?</strong></p>
+    <p>You tell us a little: where you sell and roughly how your Amazon inventory is handled. That's it — no tax forms, no accountant required.</p>
+
+    <p style="font-weight:600;color:var(--olive-dp);margin-bottom:.4rem">We tell you plainly:</p>
+    <ul class="checklist">
+      <li><span class="mk">›</span><span>Whether you're <b>triggering California nexus right now</b> — and why.</span></li>
+      <li><span class="mk">›</span><span>Which taxes are <b>actually in play</b> — the $800 franchise tax, sales/use tax, or both — in plain English, not code sections.</span></li>
+      <li><span class="mk">›</span><span>A <b>rough sense of scale</b> — is this a tidy housekeeping item or a "deal with this soon" situation.</span></li>
+      <li><span class="mk">›</span><span>Your <b>next move</b> — whether it's a five-minute fix you can handle yourself, or the point where you should bring in a professional.</span></li>
+    </ul>
+
+    <p>Your result is yours. No account required to see it, and we don't make you "book a call" to find out what you're facing.</p>
+    <div style="margin-top:1.6rem"><a class="btn" href="/audit">Run my free exposure check</a></div>
+  </div>
+</section>
+
+<!-- ================= §5 THE CAMPS ================= -->
+<section>
+  <div class="wrap measure">
+    <p class="eyebrow">§05 — The advice problem</p>
+    <h2>The most confident advice online is also the most wrong</h2>
+    <p style="margin-top:1.2rem">Go search "California franchise tax" in any seller forum and you'll find two camps, talking right past each other.</p>
+
+    <div class="camps">
+      <div class="camp bad">
+        <p class="tag">⚑ The loud camp · wrong</p>
+        <p>Ignore it, the state has no jurisdiction, Amazon already handles your taxes, don't even respond. It gets upvotes. It sounds like relief. And it's the advice most likely to turn a manageable bill into a five-figure problem.</p>
+      </div>
+      <div class="camp good">
+        <p class="tag">✓ The quiet camp · correct</p>
+        <p>Inventory sitting in a California warehouse creates physical nexus, Amazon only remits sales tax as a marketplace facilitator, and income and franchise tax are still on you — with real collection power behind them.</p>
+      </div>
+    </div>
+
+    <p>Here's the trouble: when you're scared and Googling at midnight, you can't tell which camp to trust. The confident voice is the dangerous one, and there's no label on it.</p>
+    <p>That's the gap TaxNexus fills. Not a forum opinion, not a CPA's $400 consultation to find out if you even have a problem — just a straight, correct read on where you actually stand.</p>
+    <p>And don't let anyone wave you off with "you're too small to matter." In a 2025 California tax appeal, a seller with under $14,000 in California sales — barely any inventory in the state — was still held liable for the $800. Being under the thresholds isn't a safe harbor. If your inventory touched California, the question is live no matter how little you sold.</p>
+    <div style="margin-top:1.6rem"><a class="btn" href="/audit">Run my free exposure check</a></div>
+  </div>
+</section>
+
+<!-- ================= §6 WHEN YOU NEED A PRO ================= -->
+<section class="band-ink">
+  <div class="wrap measure">
+    <p class="eyebrow">§06 — Where we stop</p>
+    <h2>We'll tell you when you need a real professional</h2>
+    <p style="margin-top:1.2rem">This is the part most tools won't say out loud, so here it is plainly.</p>
+    <p>TaxNexus is built for <strong>awareness and prevention</strong> — knowing your exposure early, while it's still small and manageable. That covers most sellers most of the time.</p>
+    <p>But if you're holding a six-figure notice, facing an audit, or staring down years of back taxes at once, software isn't what you need — a tax attorney or CPA is. And when your situation crosses that line, the tool will tell you so, honestly, instead of pretending it can handle everything.</p>
+    <p>If it's years of back taxes stacked up at once, a pro may have moves you don't — like a Voluntary Disclosure Agreement that can cap how far back the state reaches. That's exactly the kind of thing worth paying an expert for.</p>
+    <p style="margin-bottom:0">We're not trying to replace your accountant. We're trying to make sure you find out you need one <strong>before</strong> the situation gets expensive — not after.</p>
+  </div>
+</section>
+
+<!-- ================= §7 PRICING ================= -->
+<section>
+  <div class="wrap">
+    <div class="measure">
+      <p class="eyebrow">§07 — Tiers</p>
+      <h2>Start free. Pay only when you want us watching your back.</h2>
+      <p style="margin-top:1.2rem">Three tiers, each answering a different question. Most people start — and stay — at free.</p>
+    </div>
+
+    <div class="tiers">
+      <div class="tier feature">
+        <p class="name">Audit</p>
+        <p class="price">Free</p>
+        <p class="q">"Where do I stand?"</p>
+        <p>A plain-English read on your California exposure, on demand. No card, no account to see your result. This is the front door, and for a lot of sellers it's all they need.</p>
+        <a class="btn" href="/audit">Run my free check</a>
+      </div>
+
+      <div class="tier">
+        <p class="name">Guard</p>
+        <p class="price">$39<span>&nbsp;/mo</span></p>
+        <p class="q">"Keep me ahead of it."</p>
+        <p>Amazon moves your inventory without asking. Guard watches your fulfillment locations and alerts you the moment your exposure changes — a new California warehouse, a new state, a new threshold crossed — so the next surprise letter never comes. For sellers who know they're in it and want to stay ahead.</p>
+        <a class="btn-ghost" href="/audit">Start with Guard</a>
+      </div>
+
+      <div class="tier">
+        <p class="name">Aggregator</p>
+        <p class="price">$119<span>&nbsp;/mo</span></p>
+        <p class="q">"I've got a bigger operation."</p>
+        <p>Multiple brands or entities, higher volume, exposure across several states — Aggregator rolls it into one clear view so nothing slips through the cracks. For established sellers who can't afford a blind spot.</p>
+        <a class="btn-ghost" href="/audit">Talk to us about Aggregator</a>
+      </div>
+    </div>
+
+    <p class="tiers-foot">No long-term contract. The free Audit stays free. Upgrade only when staying ahead is worth $39 to you.</p>
+  </div>
+</section>
+
+<!-- ================= §8 FAQ ================= -->
+<section class="band">
+  <div class="wrap measure">
+    <p class="eyebrow">§08 — Frequently asked</p>
+    <h2>The questions every blindsided seller asks</h2>
+
+    <div class="faq">
+      <details>
+        <summary>Doesn't Amazon already handle my taxes?</summary>
+        <div class="ans"><p>Partly — and that's exactly where people get caught. Amazon collects and remits sales tax for you as a marketplace facilitator. It does not handle your income or franchise tax. Those are on you, and Amazon never mentions them.</p></div>
+      </details>
+      <details>
+        <summary>What is this $800 thing?</summary>
+        <div class="ans"><p>California's minimum franchise tax. If the state considers you to be "doing business" there — which inventory sitting in a CA warehouse can trigger all on its own — you owe an $800 minimum every year, whether or not you turned a profit, and whether or not your sales are anywhere near big enough to cross a threshold. It surprises almost everyone.</p></div>
+      </details>
+      <details>
+        <summary>Do I have to file in California every year now, even at $0?</summary>
+        <div class="ans"><p>Possibly, yes — once you have nexus, the obligation can recur annually until your situation changes. The Audit will tell you what applies to you, so you're not guessing.</p></div>
+      </details>
+      <details>
+        <summary>I just got a notice. What do I do?</summary>
+        <div class="ans"><p>First: don't panic, and don't ignore it — both are how this gets worse. Run the free Audit to understand what the notice actually means and how serious it is. If it's in "call a professional" territory, we'll tell you that straight, so you don't overpay out of fear or underreact out of hope.</p></div>
+      </details>
+      <details>
+        <summary>Is this only about California?</summary>
+        <div class="ans"><p>California is our focus because it's the most aggressive and the most common blindside. But inventory can create nexus in other states too — and Guard watches for that as your footprint moves.</p></div>
+      </details>
+      <details>
+        <summary>Does this only work for Amazon sellers?</summary>
+        <div class="ans"><p>No. The trigger isn't Amazon — it's your inventory sitting in a California warehouse, however it got there. Amazon FBA is just the most common way it happens, because it moves your stock automatically. The same exposure can come from Fulfilled by TikTok, Walmart Fulfillment Services, or a Shopify store running through a third-party warehouse that holds inventory in California. If your goods are in the state, the $800 franchise tax question is on the table — and the Audit will tell you either way.</p></div>
+      </details>
+      <details>
+        <summary>Is this tax advice?</summary>
+        <div class="ans"><p>No. TaxNexus gives you a plain-English read on your exposure so you can make an informed decision. It's not a substitute for a CPA or tax attorney — and for the serious cases, we'll point you toward one.</p></div>
+      </details>
+      <details>
+        <summary>Is my data safe?</summary>
+        <div class="ans"><p>Yes. We ask for the minimum needed to assess exposure, and security isn't an afterthought here — it's the founder's background. We don't sell your data, and we don't make you hand over more than the check requires.</p></div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ================= §9 FINAL CTA ================= -->
+<section class="final">
+  <div class="wrap">
+    <div class="cover marks"><span class="m2"></span>
+      <p class="eyebrow" style="justify-content:center">§09 — Your move</p>
+      <h2>Find out where you stand — before the letter does.</h2>
+      <p>The sellers who get blindsided aren't careless. They just never got the heads-up. Take two minutes and get yours.</p>
+      <a class="btn" href="/audit">Run my free exposure check</a>
+      <p class="micro" style="text-align:center">No credit card. No account to see your result. Just a straight answer.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <b>TaxNexus</b>
+      A Consult Solutions product line · taxnexusapp.com
+    </div>
+    <div class="disc">
+      <b>Not tax advice</b>
+      TaxNexus provides a plain-English read on your potential tax exposure. It is not a CPA, a tax attorney, or a substitute for professional advice. For audits, notices, or back-tax situations, consult a licensed professional.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // sticky mini-bar reveals once the hero scrolls out of view; respects reduced motion
+  (function(){
+    var sticky = document.getElementById('sticky');
+    var hero = document.getElementById('top');
+    if(!sticky || !hero || !('IntersectionObserver' in window)) return;
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){ sticky.classList.remove('show'); sticky.setAttribute('aria-hidden','true'); }
+        else { sticky.classList.add('show'); sticky.setAttribute('aria-hidden','false'); }
+      });
+    }, {threshold:0});
+    io.observe(hero);
+  })();
+</script>
+
+</body>
+</html>

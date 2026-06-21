@@ -1,31 +1,27 @@
 <script lang="ts">
+	import * as m from '$lib/paraglide/messages.js';
 	import SeoHead from '$lib/components/SeoHead.svelte';
-	import HomeFaq from '$lib/components/HomeFaq.svelte';
-	import HomeFeaturesPreview from '$lib/components/HomeFeaturesPreview.svelte';
-	import HomeHero from '$lib/components/HomeHero.svelte';
-	import HomeSignupCta from '$lib/components/HomeSignupCta.svelte';
-
-	let { data } = $props();
-
-	const authSession = $derived(
-		data.authSession === 'signed-in' ? ('signed-in' as const) : ('signed-out' as const)
-	);
+	import DossierRail from '$lib/components/landing/DossierRail.svelte';
+	import Hero from '$lib/components/landing/Hero.svelte';
+	import Mechanism from '$lib/components/landing/Mechanism.svelte';
+	import FounderNote from '$lib/components/landing/FounderNote.svelte';
+	import FreeAudit from '$lib/components/landing/FreeAudit.svelte';
+	import Camps from '$lib/components/landing/Camps.svelte';
+	import ProHandoff from '$lib/components/landing/ProHandoff.svelte';
+	import PricingTiers from '$lib/components/landing/PricingTiers.svelte';
+	import Faq from '$lib/components/landing/Faq.svelte';
+	import FinalCta from '$lib/components/landing/FinalCta.svelte';
 </script>
 
-<SeoHead
-	documentTitle={data.cmsSeo?.title}
-	pageTitle="Home"
-	description={data.hero.subtext}
-	cms={data.cmsSeo
-		? {
-				title: data.cmsSeo.title,
-				description: data.cmsSeo.description,
-				imageUrl: data.cmsSeo.imageUrl ?? undefined
-			}
-		: undefined}
-/>
+<SeoHead pageTitle={m.home_seo_title()} description={m.home_seo_description()} />
 
-<HomeHero hero={data.hero} authSession={authSession} />
-<HomeFeaturesPreview items={data.featureItems} />
-<HomeFaq groups={data.faqGroups} />
-<HomeSignupCta authSession={authSession} landing={data.landingSignup} />
+<DossierRail />
+<Hero />
+<Mechanism />
+<FounderNote />
+<FreeAudit />
+<Camps />
+<ProHandoff />
+<PricingTiers />
+<Faq />
+<FinalCta />
