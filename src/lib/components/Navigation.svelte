@@ -5,12 +5,15 @@
 	import { resolve } from '$app/paths';
 	import { deLocalizeUrl, localizeHref } from '$lib/paraglide/runtime';
 
+	// Trimmed to real destinations: Pricing jumps to the home §7 anchor; the standalone
+	// /pricing + /features boilerplate routes are intentionally not linked.
 	const navItems = [
 		{ href: '/', label: 'Home' },
-		{ href: '/features', label: 'Features' },
-		{ href: '/pricing', label: 'Pricing' },
+		{ href: '/#pricing', label: 'Pricing' },
 		{ href: '/contact', label: 'Contact' }
 	] as const;
+
+	const runCheckHref = resolve(localizeHref('/taxnexus') as any);
 
 	let menuOpen = $state(false);
 
@@ -37,6 +40,11 @@
 	}
 
 	function linkHref(href: string) {
+		const hashIndex = href.indexOf('#');
+		if (hashIndex !== -1) {
+			const path = href.slice(0, hashIndex) || '/';
+			return resolve(localizeHref(path) as any) + href.slice(hashIndex);
+		}
 		return resolve(localizeHref(href) as any);
 	}
 </script>
@@ -72,5 +80,12 @@
 				{item.label}
 			</a>
 		{/each}
+		<a
+			class="btn btn-primary btn-sm justify-start font-mono md:justify-center"
+			href={runCheckHref}
+			data-sveltekit-preload-data="hover"
+		>
+			Run free check
+		</a>
 	</nav>
 </div>

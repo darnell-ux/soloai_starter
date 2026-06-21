@@ -15,12 +15,15 @@
 <header class="border-b border-base-300 bg-base-100">
 	<div class="relative mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
 		<a
-			class="btn btn-ghost shrink-0 text-lg font-semibold normal-case"
+			class="flex shrink-0 flex-col leading-none"
 			href={resolve(localizeHref('/') as any)}
 			data-sveltekit-preload-data="hover"
-			aria-label="Home"
+			aria-label="TaxNexus — Home"
 		>
-			App
+			<span class="font-mono text-lg font-bold tracking-tight text-base-content">TaxNexus</span>
+			<span class="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-muted">
+				by Consult Solutions
+			</span>
 		</a>
 		<Navigation />
 		<div class="flex shrink-0 items-center gap-2">

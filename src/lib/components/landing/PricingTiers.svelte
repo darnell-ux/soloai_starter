@@ -9,7 +9,7 @@
 </script>
 
 <!-- §7 PRICING -->
-<section class="bg-base-100" aria-labelledby="home-pricing-heading">
+<section id="pricing" class="scroll-mt-4 bg-base-100" aria-labelledby="home-pricing-heading">
 	<div class="mx-auto max-w-5xl px-4 py-16 md:py-24">
 		<div class="max-w-2xl">
 			<p

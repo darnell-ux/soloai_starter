@@ -29,7 +29,7 @@
 			Log in
 		</a>
 		<a
-			class="btn btn-primary btn-sm"
+			class="btn btn-outline btn-secondary btn-sm"
 			href={resolve(localizeHref('/signup') as any)}
 			data-sveltekit-preload-data="hover"
 		>
