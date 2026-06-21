@@ -1,6 +1,6 @@
 import forms from '@tailwindcss/forms';
 import typography from '@tailwindcss/typography';
-import daisyui from 'daisyui';
+// daisyui (v5) is registered in src/app.css via @plugin "daisyui" + the "dossier" theme.
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -21,20 +21,31 @@ export default {
 				'3xl': '1920px'
 			},
 			colors: {
+				// Field-dossier named palette (canonical). Mirror in src/app.css + the dossier DaisyUI theme.
+				paper: '#ece7da',
+				'paper-2': '#e3dcc9',
+				ink: '#211f1a',
+				olive: '#54583e',
+				'olive-deep': '#3a3d2a',
+				'stamp-red': '#a33028',
+				'stamp-deep': '#832720',
+				muted: '#6e6c5b',
+				hairline: '#c9c2ae',
 				brand: {
-					DEFAULT: '#1d4ed8',
-					foreground: '#f8fafc',
-					muted: '#64748b',
-					contrast: '#0f172a'
+					DEFAULT: '#a33028', // stamp-red
+					foreground: '#ece7da', // paper
+					muted: '#6e6c5b', // muted
+					contrast: '#211f1a' // ink
 				},
 				surface: {
-					DEFAULT: '#ffffff',
-					elevated: '#f8fafc',
-					muted: '#f1f5f9'
+					DEFAULT: '#ece7da', // paper
+					elevated: '#e3dcc9', // paper-2
+					muted: '#c9c2ae' // hairline
 				}
 			},
 			fontFamily: {
 				sans: [
+					'IBM Plex Sans',
 					'ui-sans-serif',
 					'system-ui',
 					'-apple-system',
@@ -44,7 +55,9 @@ export default {
 					'Arial',
 					'Noto Sans',
 					'sans-serif'
-				]
+				],
+				mono: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
+				serif: ['IBM Plex Serif', 'Georgia', 'serif']
 			},
 			fontSize: {
 				'display-xs': ['1.25rem', { lineHeight: '1.75rem' }],
@@ -53,14 +66,9 @@ export default {
 				'display-lg': ['2.25rem', { lineHeight: '2.5rem' }]
 			},
 			boxShadow: {
-				focus: '0 0 0 3px rgba(29, 78, 216, 0.35)'
+				focus: '0 0 0 3px rgba(163, 48, 40, 0.35)'
 			}
 		}
 	},
-	plugins: [forms, typography, daisyui],
-	daisyui: {
-		themes: ['light', 'dark'],
-		darkTheme: 'dark',
-		logs: false
-	}
+	plugins: [forms, typography]
 };

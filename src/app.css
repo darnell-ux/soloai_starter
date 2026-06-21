@@ -2,19 +2,60 @@
 @config '../tailwind.config.js';
 
 /*
+  DaisyUI v5 is registered here (CSS-first) rather than via the JS config plugins array.
+  "dossier" is the canonical field-dossier identity and the default active theme; a built-in
+  "dark" entry is kept available but intentionally not yet tuned.
+*/
+@plugin "daisyui" {
+	themes: dark;
+}
+
+@plugin "daisyui/theme" {
+	name: 'dossier';
+	default: true;
+	color-scheme: light;
+	/* paper / paper-2 / hairline */
+	--color-base-100: #ece7da;
+	--color-base-200: #e3dcc9;
+	--color-base-300: #c9c2ae;
+	/* ink */
+	--color-base-content: #211f1a;
+	/* stamp-red — buttons, links, CTAs */
+	--color-primary: #a33028;
+	--color-primary-content: #ece7da;
+	/* olive — structure */
+	--color-secondary: #54583e;
+	--color-secondary-content: #ece7da;
+	/* olive-deep — dark band */
+	--color-accent: #3a3d2a;
+	--color-accent-content: #ece7da;
+	--color-neutral: #54583e;
+	--color-neutral-content: #ece7da;
+	/* on-palette status colors (sensible defaults; not part of the named spec) */
+	--color-info: #54583e;
+	--color-info-content: #ece7da;
+	--color-success: #3a3d2a;
+	--color-success-content: #ece7da;
+	--color-warning: #a37a28;
+	--color-warning-content: #ece7da;
+	--color-error: #832720;
+	--color-error-content: #ece7da;
+}
+
+/*
   Global tokens: mirror tailwind.config.js theme.extend (keep in sync when tokens change).
   Dark mode: pair with data-theme from DaisyUI. RTL: html[dir] from i18n.
 */
 @layer base {
 	:root {
 		color-scheme: light dark;
-		--color-brand: #1d4ed8;
-		--color-brand-foreground: #f8fafc;
-		--color-brand-muted: #64748b;
-		--color-brand-contrast: #0f172a;
-		--color-surface: #ffffff;
-		--color-surface-elevated: #f8fafc;
-		--color-surface-muted: #f1f5f9;
+		--color-brand: #a33028;
+		--color-brand-foreground: #ece7da;
+		--color-brand-muted: #6e6c5b;
+		--color-brand-contrast: #211f1a;
+		--color-surface: #ece7da;
+		--color-surface-elevated: #e3dcc9;
+		--color-surface-muted: #c9c2ae;
 	}
 
 	[data-theme='dark'] {
@@ -30,7 +71,7 @@
 	}
 
 	:focus-visible {
-		box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.35);
+		box-shadow: 0 0 0 3px rgba(163, 48, 40, 0.35);
 		@apply rounded-sm outline outline-2 outline-offset-2 outline-brand;
 	}
 }
@@ -62,7 +103,7 @@
 		overflow: visible;
 		clip: auto;
 		white-space: normal;
-		outline: 2px solid var(--color-brand, #1d4ed8);
+		outline: 2px solid var(--color-brand, #a33028);
 		outline-offset: 2px;
 	}
 }

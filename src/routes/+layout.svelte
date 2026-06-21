@@ -1,5 +1,16 @@
 <script lang="ts">
 	import '../app.css';
+	// Field-dossier identity: IBM Plex (Sans/Mono/Serif). Weights kept lean — only what the design uses.
+	import '@fontsource/ibm-plex-sans/400.css';
+	import '@fontsource/ibm-plex-sans/500.css';
+	import '@fontsource/ibm-plex-sans/600.css';
+	import '@fontsource/ibm-plex-sans/700.css';
+	import '@fontsource/ibm-plex-mono/400.css';
+	import '@fontsource/ibm-plex-mono/500.css';
+	import '@fontsource/ibm-plex-mono/600.css';
+	import '@fontsource/ibm-plex-serif/400.css';
+	import '@fontsource/ibm-plex-serif/500.css';
+	import '@fontsource/ibm-plex-serif/400-italic.css';
 	import { browser } from '$app/environment';
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
@@ -79,7 +90,7 @@
 	<link rel="apple-touch-icon" href="/favicon.svg" />
 
 	<link rel="manifest" href="/site.webmanifest" />
-	<meta name="theme-color" content="#1d4ed8" />
+	<meta name="theme-color" content="#a33028" />
 </svelte:head>
 
 {#if a?.gtmContainerId}
