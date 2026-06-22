@@ -1,10 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
+	import { localizeHref } from '$lib/paraglide/runtime';
 	import SeoHead from '$lib/components/SeoHead.svelte';
+	import Marks from '$lib/components/landing/Marks.svelte';
 
 	export const prerender = false;
 
 	const ENTITY_CARD_KEYS = ['LLC', 'SCORP', 'CORP'] as const;
+
+	// Checkout isn't live yet — upgrade CTAs point at the home pricing section instead.
+	const plansHref = (resolve(localizeHref('/') as any) as string) + '#pricing';
 
 	type FormRow = { id: string; name: string; purpose: string; due: string };
 	type AssessResult = { hasNexus: boolean; triggers: string[]; forms: FormRow[]; minTax: number };
@@ -29,15 +35,10 @@
 	let scenarios = $state<Scenarios | null>(null);
 
 	let userLocale = $state<'en' | 'fr'>('en');
-	let paymentSubtext = $state('Calculating payment provider…');
 	let localeLabel = $state('EN');
 
 	function syncLocaleUi(): void {
 		localeLabel = userLocale.toUpperCase();
-		paymentSubtext =
-			userLocale === 'en'
-				? 'US region: Stripe checkout'
-				: 'Global region: Lemon Squeezy checkout';
 	}
 
 	async function refreshPenalties(): Promise<void> {
@@ -99,21 +100,6 @@
 		scenarios = (await res.json()) as Scenarios;
 	}
 
-	async function openCheckout(): Promise<void> {
-		const res = await fetch('/api/create-checkout', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ locale: userLocale, planId: 'pro_123' })
-		});
-		const payload = (await res.json()) as { url?: string; provider?: string; message?: string };
-		if (!res.ok || !payload.url) {
-			alert(payload.message ?? `Checkout unavailable (${res.status})`);
-			return;
-		}
-		alert(`Redirecting to ${payload.provider}…`);
-		window.location.href = payload.url;
-	}
-
 	onMount(() => {
 		userLocale = navigator.language.startsWith('en') ? 'en' : 'fr';
 	});
@@ -129,67 +115,64 @@
 </script>
 
 <SeoHead
-	pageTitle="CA TaxNexus | Franchise Tax Board Illustrative Analyzer"
-	description="Educational FTB-style nexus, penalty, and entity comparison tooling — not official guidance."
+	pageTitle="Free California Tax Exposure Check"
+	description="See whether your Amazon FBA inventory triggers California FTB and CDTFA tax exposure — a free first-pass read, not tax advice."
 	noindex
 />
 
-<div class="min-h-screen bg-slate-50">
-	<nav
-		class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur"
-	>
+<div class="min-h-screen bg-base-200">
+	<nav class="sticky top-0 z-40 border-b border-base-300 bg-base-100/95 backdrop-blur">
 		<div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-4 py-3">
 			<div class="flex items-center gap-2">
 				<div
-					class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-600 text-lg font-bold text-white shadow"
+					class="flex h-10 w-10 items-center justify-center bg-secondary text-lg font-bold text-secondary-content"
 				>
 					N
 				</div>
-				<h1 class="text-lg font-bold tracking-tight text-slate-800">Ca Tax Nexus</h1>
+				<h1 class="font-mono text-lg font-bold tracking-tight text-base-content">TaxNexus</h1>
 			</div>
-			<div class="flex items-center gap-3">
-				<span
-					class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-800 ring-1 ring-blue-200"
-				>
+			<div class="flex items-center gap-4">
+				<span class="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-secondary">
 					Locale · {localeLabel}
 				</span>
-				<button
-					type="button"
-					class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-900"
-					onclick={() => openCheckout()}
-				>
-					Upgrade · Pro Audit Shield
-				</button>
+				<a class="btn btn-outline btn-secondary btn-sm font-mono" href={plansHref}>
+					See Guard &amp; Aggregator plans
+				</a>
 			</div>
 		</div>
 	</nav>
 
 	<main class="mx-auto max-w-5xl px-4 py-6">
-		<p
-			class="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900"
-			role="note"
-		>
-			<strong>Fictitious educational demo:</strong>
-			Illustrative Franchise Tax Board–style thresholds and calculators only. Outputs are simulations (including
-			5%/month capped delinquency and compound-style interest placeholders). Not tax advice, accounting, legal
-			guidance, or an endorsement of any provider. Confirm all figures with FTB Publication 927 and your advisor.
-			<br />
-			<span class="text-amber-800/80">
-				No user data leaves your session except POSTs to same-origin endpoints for this sandbox.
-			</span>
-		</p>
+		<div class="mb-6 border-l-[3px] border-secondary bg-base-100 px-4 py-3 text-sm leading-relaxed text-base-content" role="note">
+			<p class="mb-1 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-secondary">
+				Read this first
+			</p>
+			<p class="mb-2">
+				This is a first-pass read, not tax advice. TaxNexus estimates your California exposure using
+				current FTB and CDTFA figures — built to tell you whether you have a problem and roughly how
+				big, not to file for you or replace a CPA. Confirm anything that matters with a tax
+				professional before you act; FTB Publication 927 is a good starting point.
+			</p>
+			<p class="mb-0 text-muted">
+				Your inputs stay in your session — nothing's stored, and figures go only to our own server to
+				run the numbers.
+			</p>
+		</div>
 
 		<section class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 			<!-- Nexus analyzer -->
-			<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-1">
-				<h2 class="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 font-bold text-slate-900">
-					<span class="text-teal-600">⚡</span> Nexus Analyzer Engine
+			<div class="relative border border-base-300 bg-base-100 p-6 lg:col-span-1">
+				<Marks />
+				<h2
+					class="mb-4 flex items-center gap-2 border-b border-base-300 pb-3 font-bold text-base-content"
+				>
+					<span class="text-secondary">⚡</span> Nexus Analyzer Engine
 				</h2>
-				<form class="flex flex-col gap-4 text-sm text-slate-700" onsubmit={runAssessment}>
+				<form class="flex flex-col gap-4 text-sm text-base-content" onsubmit={runAssessment}>
 					<label class="block font-medium">
 						Legal Structure
 						<select
-							class="mt-1 block w-full rounded-lg border border-slate-300 bg-white py-3 pl-3 pr-8 outline-none ring-teal-500 focus:ring-2"
+							class="mt-1 block w-full border border-base-300 bg-base-100 py-3 pl-3 pr-8 outline-none focus:border-secondary focus:ring-2 focus:ring-olive"
 							bind:value={entityType}
 						>
 							<option value="LLC">California LLC</option>
@@ -204,12 +187,12 @@
 							type="number"
 							step="any"
 							min="0"
-							class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono"
+							class="mt-1 w-full border border-base-300 bg-base-100 px-3 py-2 font-mono outline-none focus:border-secondary focus:ring-2 focus:ring-olive"
 							bind:value={salesInput}
 							placeholder="$800,001"
 							required
 						/>
-						<span class="mt-1 block text-[11px] text-slate-500">Economic Nexus cap: $757,070</span>
+						<span class="mt-1 block font-mono text-[11px] text-muted">Economic Nexus cap: $757,070</span>
 					</label>
 
 					<label class="block font-medium">
@@ -218,54 +201,53 @@
 							type="number"
 							step="any"
 							min="0"
-							class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono"
+							class="mt-1 w-full border border-base-300 bg-base-100 px-3 py-2 font-mono outline-none focus:border-secondary focus:ring-2 focus:ring-olive"
 							bind:value={inventoryInput}
 							placeholder="$0 — FBA/3PL"
 						/>
 					</label>
 
 					<label class="flex cursor-pointer items-start gap-2 font-normal">
-						<input type="checkbox" class="mt-1" bind:checked={hasEmployees} />
+						<input type="checkbox" class="mt-1 accent-olive" bind:checked={hasEmployees} />
 						<span>Remote employees based in CA (Payroll Nexus)</span>
 					</label>
 
-					<button
-						type="submit"
-						disabled={assessing}
-						class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
-					>
+					<button type="submit" disabled={assessing} class="btn btn-primary mt-4 w-full font-mono disabled:opacity-60">
 						{#if assessing}
 							<span>Running engine…</span>
-							<span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+							<span
+								class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current/40 border-t-current"
 							></span>
 						{:else}
-							Run Franchise Tax Diagnostics
+							<span aria-hidden="true">▸</span> Run my exposure check
 						{/if}
 					</button>
 				</form>
 			</div>
 
 			<!-- Results dashboard -->
-			<div class="rounded-2xl border border-dashed border-slate-300 bg-white p-6 shadow-inner lg:col-span-2">
+			<div class="relative border border-base-300 bg-base-100 p-6 lg:col-span-2">
+				<Marks />
 				{#if !showResults}
-					<p class="rounded-xl bg-slate-50 p-8 text-center text-sm text-slate-500">
+					<p class="bg-base-200 p-8 text-center text-sm text-muted">
 						Submit the analyzer form to populate status, penalty forecaster, and your FTB checklist.
 					</p>
 				{:else if assessment}
 					<div class="space-y-6">
 						<div
-							class="rounded-xl border p-5 shadow-sm {assessment.hasNexus
-								? 'border-red-200 bg-red-50'
-								: 'border-emerald-200 bg-emerald-50'}"
+							class="border p-5 {assessment.hasNexus
+								? 'border-primary bg-primary/10'
+								: 'border-secondary bg-secondary/10'}"
 						>
 							<h3
-								class="mb-2 text-xs font-bold uppercase tracking-wider {assessment.hasNexus
-									? 'text-red-600'
-									: 'text-emerald-700'}"
+								class="mb-2 flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-wider {assessment.hasNexus
+									? 'text-primary'
+									: 'text-secondary'}"
 							>
+								{#if !assessment.hasNexus}<span aria-hidden="true">✓</span>{/if}
 								{assessment.hasNexus ? 'Nexus Status: Confirmed' : 'Nexus Status: Low Risk'}
 							</h3>
-							<p class="text-sm text-slate-700">
+							<p class="text-sm text-base-content">
 								{#if assessment.hasNexus}
 									Your profile triggers California franchise tax obligation paths. Review triggers and
 									the checklist for form timing.
@@ -275,7 +257,7 @@
 								{/if}
 							</p>
 							{#if assessment.triggers.length > 0}
-								<ul class="mt-3 list-inside list-disc space-y-1 text-xs text-slate-800">
+								<ul class="mt-3 list-inside list-disc space-y-1 text-xs text-base-content">
 									{#each assessment.triggers as t (t)}
 										<li>{t}</li>
 									{/each}
@@ -283,11 +265,11 @@
 							{/if}
 						</div>
 
-						<div class="rounded-xl border border-slate-200 bg-slate-50 p-5">
-							<h3 class="mb-3 text-sm font-bold text-slate-800">Penalty & interest forecaster</h3>
-							<p class="mb-2 text-xs text-slate-600">
+						<div class="border border-base-300 bg-base-200 p-5">
+							<h3 class="mb-3 text-sm font-bold text-base-content">Penalty &amp; interest forecaster</h3>
+							<p class="mb-2 text-xs text-muted">
 								Months late:
-								<span class="font-mono font-bold text-teal-700">{monthsLate}</span>
+								<span class="font-mono font-bold text-secondary">{monthsLate}</span>
 								· Base tax for calc:
 								<span class="font-mono">{assessment.minTax || 800}</span>
 							</p>
@@ -296,57 +278,55 @@
 								min="0"
 								max="12"
 								step="1"
-								class="mb-4 w-full accent-teal-600"
+								class="mb-4 w-full accent-olive"
 								bind:value={monthsLate}
 								oninput={() => void handlePenaltySlider()}
 							/>
 							{#if penaltyLoading}
-								<p class="text-xs text-slate-500">Updating estimates…</p>
+								<p class="text-xs text-muted">Updating estimates…</p>
 							{:else if penaltyInfo}
 								<div class="grid grid-cols-3 gap-2 text-center text-xs sm:text-sm">
-									<div class="rounded-lg bg-white p-2 shadow-sm">
-										<div class="text-slate-500">Penalty</div>
-										<div class="font-mono font-bold text-red-600">${penaltyInfo.penalty}</div>
+									<div class="border border-base-300 bg-base-100 p-2">
+										<div class="text-muted">Penalty</div>
+										<div class="font-mono font-bold text-primary">${penaltyInfo.penalty}</div>
 									</div>
-									<div class="rounded-lg bg-white p-2 shadow-sm">
-										<div class="text-slate-500">Interest</div>
-										<div class="font-mono font-bold text-amber-600">${penaltyInfo.interest}</div>
+									<div class="border border-base-300 bg-base-100 p-2">
+										<div class="text-muted">Interest</div>
+										<div class="font-mono font-bold text-secondary">${penaltyInfo.interest}</div>
 									</div>
-									<div class="rounded-lg bg-white p-2 shadow-sm">
-										<div class="text-slate-500">Total est.</div>
-										<div class="font-mono font-bold text-slate-900">${penaltyInfo.total}</div>
+									<div class="border border-base-300 bg-base-100 p-2">
+										<div class="text-muted">Total est.</div>
+										<div class="font-mono font-bold text-base-content">${penaltyInfo.total}</div>
 									</div>
 								</div>
 								{#if penaltyInfo.warning}
-									<p class="mt-2 text-[11px] text-amber-800">{penaltyInfo.warning}</p>
+									<p class="mt-2 text-[11px] text-muted">{penaltyInfo.warning}</p>
 								{/if}
 							{/if}
 						</div>
 
 						<div>
-							<h3 class="mb-2 text-sm font-bold text-slate-800">FTB action checklist</h3>
-							<ul class="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white text-sm">
+							<h3 class="mb-2 text-sm font-bold text-base-content">FTB action checklist</h3>
+							<ul class="divide-y divide-base-300 border border-base-300 bg-base-100 text-sm">
 								{#if assessment.forms.length === 0}
-									<li class="px-4 py-4 text-slate-500">No forms listed for this outcome.</li>
+									<li class="px-4 py-4 text-muted">No forms listed for this outcome.</li>
 								{:else}
 									{#each assessment.forms as f (f.id + f.name)}
 										<li class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
 											<div>
-												<span class="font-bold text-slate-900">Form {f.id}</span>
+												<span class="font-bold text-base-content">Form {f.id}</span>
 												— {f.name}
-												<p class="text-xs text-slate-500">{f.purpose}</p>
+												<p class="text-xs text-muted">{f.purpose}</p>
 											</div>
-											<span class="rounded bg-slate-100 px-2 py-1 font-mono text-xs text-teal-800"
-												>{f.due}</span
-											>
+											<span class="bg-base-200 px-2 py-1 font-mono text-xs text-secondary">{f.due}</span>
 										</li>
 									{/each}
 								{/if}
 							</ul>
 							{#if assessment.hasNexus && assessment.minTax > 0}
-								<p class="mt-2 text-xs font-semibold text-slate-700">
+								<p class="mt-2 text-xs font-semibold text-base-content">
 									Estimated minimum franchise tax exposure (placeholder):
-									<span class="font-mono text-teal-700">${assessment.minTax}</span>/yr
+									<span class="font-mono text-secondary">${assessment.minTax}</span>/yr
 								</p>
 							{/if}
 						</div>
@@ -356,15 +336,17 @@
 		</section>
 
 		<!-- Compare entities -->
-		<section class="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-md">
-			<h2 class="mb-1 text-xl font-bold text-slate-900">Entity “what-if” (illustrative)</h2>
-			<p class="mb-4 text-xs text-slate-500">
-				LLC gross-receipt fee band, S-corp rate, and C-corp rate — Gemini-style placeholders only.
+		<section class="relative mt-10 border border-base-300 bg-base-100 p-6">
+			<Marks />
+			<h2 class="mb-1 text-xl font-bold text-base-content">Entity “what-if” (illustrative)</h2>
+			<p class="mb-4 text-xs text-muted">
+				How the $800 minimum and gross-receipts fees land across LLC, S-corp, and C-corp — based on
+				current FTB figures.
 			</p>
 
 			<input
 				type="number"
-				class="mb-6 w-full max-w-md rounded-xl border border-slate-300 px-4 py-3 font-mono text-lg"
+				class="mb-6 w-full max-w-md border border-base-300 bg-base-100 px-4 py-3 font-mono text-lg outline-none focus:border-secondary focus:ring-2 focus:ring-olive"
 				bind:value={profitInput}
 				min="0"
 				step="1000"
@@ -376,13 +358,13 @@
 					{#each ENTITY_CARD_KEYS as kind (kind)}
 						{@const row = scenarios[kind]}
 						<div
-							class="rounded-xl border p-4 {kind === 'SCORP'
-								? 'border-blue-200 bg-blue-50/70'
-								: 'border-slate-100 bg-slate-50/50'}"
+							class="border p-4 {kind === 'SCORP'
+								? 'border-secondary bg-base-200'
+								: 'border-base-300 bg-base-100'}"
 						>
-							<p class="text-xs font-bold uppercase text-slate-500">{kind}</p>
-							<p class="text-3xl font-black text-slate-900">${Math.round(row.total).toLocaleString()}</p>
-							<dl class="mt-3 space-y-1 text-[11px] text-slate-600">
+							<p class="font-mono text-xs font-bold uppercase tracking-[0.1em] text-secondary">{kind}</p>
+							<p class="text-3xl font-black text-base-content">${Math.round(row.total).toLocaleString()}</p>
+							<dl class="mt-3 space-y-1 text-[11px] text-muted">
 								<div class="flex justify-between gap-2">
 									<dt>Min tax</dt>
 									<dd class="font-mono">${row.minTax}</dd>
@@ -399,21 +381,23 @@
 						</div>
 					{/each}
 				{:else}
-					<p class="col-span-full text-sm text-slate-500">Loading comparison…</p>
+					<p class="col-span-full text-sm text-muted">Loading comparison…</p>
 				{/if}
 			</div>
 		</section>
 
-		<section class="mt-10 rounded-2xl bg-slate-900 px-6 py-10 text-center text-white shadow-lg">
-			<h3 class="mb-2 text-2xl font-bold">Audit protection lane</h3>
-			<p class="mx-auto mb-6 max-w-lg text-sm text-slate-400">{paymentSubtext}</p>
-			<button
-				type="button"
-				class="rounded-xl bg-teal-500 px-10 py-3 text-sm font-bold shadow-lg transition hover:bg-teal-400"
-				onclick={() => openCheckout()}
+		<section class="mt-10 bg-accent px-6 py-10 text-center text-accent-content">
+			<h3 class="mb-2 text-2xl font-bold text-accent-content">Audit protection lane</h3>
+			<p class="mx-auto mb-6 max-w-lg text-sm text-accent-content/80">
+				When you're ready to stay ahead of the next notice, Guard and Aggregator keep watch on your
+				exposure so the next letter never blindsides you.
+			</p>
+			<a
+				class="btn btn-outline font-mono border-accent-content text-accent-content hover:border-accent-content hover:bg-accent-content hover:text-accent"
+				href={plansHref}
 			>
-				Unlock Pro · Guided filing pack
-			</button>
+				See Guard &amp; Aggregator plans
+			</a>
 		</section>
 	</main>
 </div>
