@@ -1,0 +1,33 @@
+# Keep the build context small and free of host artifacts/secrets.
+.git
+node_modules
+build
+.svelte-kit
+.output
+dist
+test-results
+playwright-report
+blob-report
+
+# Secrets — never ship host env into the image (injected at runtime via env_file).
+.env
+.env.*
+!.env.production.example
+*.pem
+*.key
+
+# Host-only data / third-party app state
+data/*.sqlite
+data/*.json
+mysql-data
+mautic-docroot
+strapi/.cache
+strapi/build
+strapi/dist
+
+# Misc
+.DS_Store
+*.zip
+docs
+md
+e2e

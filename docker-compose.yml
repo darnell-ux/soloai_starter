@@ -1,4 +1,4 @@
-Trx-soloai-volumes:
+x-soloai-volumes:
   &soloai-volumes
   - ${BASE_PATH}/mautic/config:/var/www/html/config:z
   - ${BASE_PATH}/mautic/logs:/var/www/html/var/logs:z
@@ -36,10 +36,19 @@ services:
       - mautic-docroot:/var/www/html/docroot:z
       - ./mautic/media/files:/var/www/html/docroot/media/files:z
       - ./mautic/media/images:/var/www/html/docroot/media/images:z
+      # TLS material + ACME webroot, shared with the certbot service.
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
     depends_on:
       - mautic_web
+      - app
+      - strapi
     ports:
-      - 8080:80
+      - 80:80      # taxnexusapp.com — ACME challenge + 301 to https
+      - 443:443    # taxnexusapp.com (app) + cms.taxnexusapp.com (strapi), TLS
+      - 8082:8082  # mautic admin (internal/no public TLS in this iteration)
+    # Reload every 6h so renewed certs are picked up without a restart.
+    command: '/bin/sh -c ''while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g "daemon off;"'''
     networks:
        - default
   
@@ -121,7 +130,50 @@ services:
         condition: service_healthy
     # Removed volume mount - was overwriting built app files
     networks:
-      - default      
+      - default
+
+  # SvelteKit (TaxNexus) production app — served at https://taxnexusapp.com via nginx.
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+      args:
+        # Inlined into the client bundle at build — must be the real public origins.
+        PUBLIC_STRAPI_URL: https://cms.taxnexusapp.com
+        STRAPI_API_URL: https://cms.taxnexusapp.com
+        BETTER_AUTH_URL: https://taxnexusapp.com
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      # adapter-node runtime
+      PORT: 3000
+      HOST: 0.0.0.0
+      ORIGIN: https://taxnexusapp.com
+      # Server-to-Strapi must be HTTPS in production (env validator) — hairpins via nginx.
+      STRAPI_API_URL: https://cms.taxnexusapp.com
+      PUBLIC_STRAPI_URL: https://cms.taxnexusapp.com
+      BETTER_AUTH_URL: https://taxnexusapp.com
+      DATABASE_AUTH_PATH: /app/data/auth.sqlite
+    volumes:
+      # Persist Better Auth SQLite + JSON billing store across deploys.
+      - app-data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - default
+
+  # TLS issuance + renewal (Let's Encrypt, webroot challenge). Shares volumes with nginx.
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    # Try renewal twice a day; nginx reloads on its own 6h timer to pick up new certs.
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done'"
+    networks:
+      - default
 
 volumes:
   mysql-data:
@@ -142,6 +194,14 @@ volumes:
       type: none
       device: ${BASE_PATH}/strapi
       o: bind
+  # SvelteKit app persistent state (Better Auth SQLite + JSON billing store).
+  app-data:
+    driver: local
+  # Let's Encrypt certs + ACME webroot, shared between nginx and certbot.
+  certbot-etc:
+    driver: local
+  certbot-www:
+    driver: local
 
 networks:
   default:
