@@ -16,7 +16,7 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     volumes: 
       - ${BASE_PATH}/mysql-data:/var/lib/mysql
       - ./init-strapi-db.sql:/docker-entrypoint-initdb.d/init-strapi-db.sql
@@ -124,7 +124,7 @@ services:
       API_TOKEN_SALT: ${API_TOKEN_SALT}
       DATABASE_SSL: false
     ports:
-      - "1337:1337"
+      - "127.0.0.1:1337:1337"
     depends_on:
       db:
         condition: service_healthy
