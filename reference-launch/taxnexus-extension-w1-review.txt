@@ -1,0 +1,131 @@
+================================================================================
+TaxNexus Nexus Alert Toolbar — Week 1 Extension Review
+================================================================================
+Artifact reviewed : extension/ (committed 27869ec, branch feat/nexus-alert-toolbar)
+Load target       : extension/dist/  (npm install && npm run build -> Load unpacked)
+Date              : 2026-06-25
+Result            : 8 / 8 criteria PASS
+Verification mode : static/logic-level (real content script exercised via test);
+                    full-browser E2E deferred to Week 2 (see criterion 8)
+
+--------------------------------------------------------------------------------
+VERIFICATION RESULTS TABLE
+--------------------------------------------------------------------------------
+ #  Criterion                         Status  Evidence (file:line)
+ -- --------------------------------- ------- --------------------------------------
+ 1  MV3, loads unpacked               PASS    public/manifest.json:2; dist/index.html:7-8
+ 2  Popup UI opens without errors     PASS    public/manifest.json:6; src/popup/Popup.svelte
+ 3  Service worker registered         PASS    public/manifest.json:22-25; public/service-worker.js
+ 4  Content scripts Amazon-only       PASS    public/manifest.json:28-39
+ 5  API calls via service worker only PASS    public/service-worker.js:43 (sole fetch)
+ 6  Minimal permissions               PASS    public/manifest.json:27
+ 7  Manual test of CA detection       PASS    test/detection.test.mjs (4/4 pass)
+ 8  One flow flagged for future E2E   PASS    README.md "E2E candidate" section
+
+--------------------------------------------------------------------------------
+CRITERION-BY-CRITERION EVIDENCE
+--------------------------------------------------------------------------------
+
+[1] Manifest V3 + loads successfully as unpacked extension
+    PASS
+    - public/manifest.json:2  ->  "manifest_version": 3
+    - Build pipeline: `npm run build` (vite.config.js) compiles the Svelte popup
+      to dist/ and copies public/ verbatim. Final dist/ contains:
+        manifest.json, service-worker.js, content/amazon-collector.js,
+        index.html, assets/index-*.js, assets/index-*.css, icons/*.png
+    - dist/index.html:7-8 use RELATIVE asset paths ("./assets/...") via
+      vite.config.js base:'./', so chrome-extension:// URLs resolve correctly.
+    - Icons present (16/32/48/128) so manifest icon refs resolve.
+    Load: chrome://extensions -> Developer mode -> Load unpacked -> extension/dist
+
+[2] Popup UI defined and opens without errors
+    PASS
+    - public/manifest.json:6-13  ->  action.default_popup = "index.html"
+    - src/popup/Popup.svelte — Svelte 5 (runes) popup, compiled by Vite
+      (build transformed 109 modules, no errors).
+    - Popup performs NO network and NO API logic; it only messages the service
+      worker (GET_STATE / RESCAN) and renders stored state, with a live
+      chrome.storage.onChanged subscription (Popup.svelte:53-54).
+
+[3] Service worker registered and handles background logic
+    PASS
+    - public/manifest.json:22-25  ->  background.service_worker =
+      "service-worker.js", type: "module"
+    - public/service-worker.js is the single background controller:
+        * message router (PAGE_SIGNALS / RESCAN / GET_STATE)
+        * nexus assessment call
+        * chrome.storage.local persistence (service-worker.js:82, 110)
+        * toolbar badge updates (setBadge)
+        * onInstalled badge reset
+
+[4] Content scripts present and scoped ONLY to Amazon page data collection
+    PASS
+    - public/manifest.json:28-39  ->  content_scripts[0].matches =
+        "https://sellercentral.amazon.com/*"
+        "https://www.amazon.com/*"
+      js: ["content/amazon-collector.js"], run_at: "document_idle"
+    - public/content/amazon-collector.js does DOM reads only: detects California
+      fulfillment-center codes (SMF/LAX/ONT/OAK/SBD/FAT/MCE/SCK/LGB/RIC/BUR/XUSC)
+      and CA location text, then sends a serialisable payload to the SW.
+    - No fetch / XMLHttpRequest in the content script (test-enforced, see [5]/[7]).
+
+[5] All API calls routed through the service worker (not UI or content scripts)
+    PASS
+    - Sole real network call: public/service-worker.js:43
+        const res = await fetch(ASSESS_ENDPOINT, { method:'POST', ... })
+      targeting POST {API_BASE}/api/taxnexus/assess.
+    - grep across public/ src/ shared/ : the only other "fetch(" occurrences are
+      prose in comments; no XMLHttpRequest anywhere.
+    - Popup (Popup.svelte) and content script (amazon-collector.js) contain zero
+      network calls — enforced by test/detection.test.mjs ("emits no network
+      call surface" strips comments then asserts no fetch(/XMLHttpRequest).
+
+[6] Permissions minimal and intentional — activeTab, storage, scripting only
+    PASS
+    - public/manifest.json:27  ->  "permissions": ["activeTab","storage","scripting"]
+    - No host_permissions key (kept empty by design). Amazon host access is
+      scoped through content_scripts.matches; SW->API fetch relies on CORS from
+      the /api/taxnexus/assess route (documented in README "API access").
+    - Each permission is genuinely exercised:
+        scripting -> service-worker.js:101 chrome.scripting.executeScript (rescan)
+        storage   -> service-worker.js:82,110 chrome.storage.local set/get
+        activeTab -> service-worker.js rescanActiveTab() reads the active tab on
+                     user action (popup "Re-scan this page")
+
+[7] Manual testing performed for the core CA warehouse detection flow
+    PASS (logic-level)
+    - test/detection.test.mjs loads the ACTUAL shipped content script
+      (public/content/amazon-collector.js) in a node:vm sandbox with a fake
+      document/chrome, feeds fixture Seller Central markup, and asserts the
+      message emitted to the service worker. Result: tests 4 / pass 4 / fail 0.
+        * CA FC codes ONT8 + SMF1        -> hasCaInventory:true, both codes reported
+        * "Tracy, California 95377" text -> CA location signal (no FC -> not inventory)
+        * Texas FC DFW7                  -> NOT flagged (no false positive)
+        * payload is data-only; no fetch(/XMLHttpRequest in the script
+    - SCOPE CAVEAT: this verifies the detection logic against the real script. It
+      does NOT drive a real browser, render the popup, or hit the live
+      /api/taxnexus/assess endpoint. That gap is the reason for criterion 8.
+
+[8] One mission-critical flow identified as a future E2E candidate
+    PASS
+    - Documented in extension/README.md ("E2E candidate for future work").
+    - Flow: Seller Central FBA inventory page -> content script collects ->
+      service worker POSTs /api/taxnexus/assess -> chrome.storage updated ->
+      badge turns red -> popup opens and renders "CA nexus exposure detected"
+      with triggers. This is the product's core blindside-warning promise and
+      the only flow spanning every component plus the network boundary, so it
+      carries the most integration risk.
+    - Recommended harness (Week 2): Playwright persistent context with
+      --load-extension=dist (Chromium), a stubbed/mocked assess endpoint for
+      determinism, asserting badge text and popup contents.
+
+--------------------------------------------------------------------------------
+OPEN DECISIONS / FOLLOW-UPS
+--------------------------------------------------------------------------------
+- CORS vs host_permissions: scaffold assumes the /api/taxnexus/assess route
+  returns Access-Control-Allow-Origin for the extension origin (keeps permissions
+  minimal). Alternative is adding host_permissions ["https://taxnexusapp.com/*"].
+- Local testing: set API_BASE in service-worker.js to http://localhost:5173 to
+  hit the running SvelteKit app.
+- Week 2: wire the Playwright E2E harness for the flow in criterion 8.
+================================================================================
