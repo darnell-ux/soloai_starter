@@ -9,8 +9,15 @@ module.exports = [
 	{
 		name: 'strapi::cors',
 		config: {
-			enabled: true,
-			origin: ['http://localhost:5173', 'http://localhost:4173', 'http://127.0.0.1:5173'],
+			// `enabled` was removed in Strapi v5 (deprecated; could silently disable CORS).
+			origin: [
+				'https://taxnexusapp.com',
+				'https://www.taxnexusapp.com',
+				'https://cms.taxnexusapp.com',
+				'http://localhost:5173',
+				'http://localhost:4173',
+				'http://127.0.0.1:5173'
+			],
 			headers: ['Content-Type', 'Authorization', 'Origin', 'Accept']
 		}
 	},
