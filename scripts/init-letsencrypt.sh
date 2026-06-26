@@ -11,6 +11,8 @@
 set -euo pipefail
 
 domains=(taxnexusapp.com www.taxnexusapp.com)
+# Re-add cms once cms.taxnexusapp.com has a DNS A record -> run with INCLUDE_CMS=1
+[ "${INCLUDE_CMS:-0}" != "0" ] && domains+=(cms.taxnexusapp.com)
 primary="taxnexusapp.com"
 email="${EMAIL:-}"          # required for expiry notices
 staging="${STAGING:-0}"     # set STAGING=1 to test against LE staging (avoids rate limits)
