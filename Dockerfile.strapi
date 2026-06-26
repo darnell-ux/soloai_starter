@@ -18,6 +18,9 @@ COPY strapi/ .
 # Create required directories
 RUN mkdir -p /srv/app/public/uploads
 
+# Strapi v5 admin build requires these React peer deps (not auto-installed by npm).
+RUN npm install --legacy-peer-deps react@^18.0.0 react-dom@^18.0.0 react-router-dom@^6.0.0 styled-components@^6.0.0
+
 # Build the app
 RUN npm run build
 
