@@ -10,7 +10,7 @@
 # Re-running is safe; renewals are handled by the long-running certbot service.
 set -euo pipefail
 
-domains=(taxnexusapp.com www.taxnexusapp.com cms.taxnexusapp.com)
+domains=(taxnexusapp.com www.taxnexusapp.com)
 primary="taxnexusapp.com"
 email="${EMAIL:-}"          # required for expiry notices
 staging="${STAGING:-0}"     # set STAGING=1 to test against LE staging (avoids rate limits)
