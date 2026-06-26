@@ -125,7 +125,41 @@ OPEN DECISIONS / FOLLOW-UPS
 - CORS vs host_permissions: scaffold assumes the /api/taxnexus/assess route
   returns Access-Control-Allow-Origin for the extension origin (keeps permissions
   minimal). Alternative is adding host_permissions ["https://taxnexusapp.com/*"].
+  >> TESTED 2026-06-26 against the now-live endpoint: it returns NO CORS headers
+     and 405s the preflight. The minimal-permissions assumption does NOT hold
+     as-is. See the UPDATE section at the end of this file.
 - Local testing: set API_BASE in service-worker.js to http://localhost:5173 to
   hit the running SvelteKit app.
 - Week 2: wire the Playwright E2E harness for the flow in criterion 8.
+================================================================================
+
+================================================================================
+UPDATE — 2026-06-26  (taxnexusapp.com is live; criterion 6 CORS now TESTED)
+================================================================================
+The production app went live on 2026-06-26, so the criterion-6 CORS assumption
+was tested against the real endpoint: POST https://taxnexusapp.com/api/taxnexus/assess
+
+  - OPTIONS preflight (Origin: chrome-extension://<id>) -> HTTP 405, allow: POST.
+    The route has no OPTIONS handler, so a browser CORS preflight FAILS.
+  - POST (Origin: chrome-extension://<id>)             -> HTTP 200, but with
+    NO Access-Control-Allow-Origin header in the response.
+
+CONCLUSION: the endpoint currently sends NO CORS headers and does not answer the
+preflight. The extension's service-worker call is a JSON POST (content-type:
+application/json = a non-simple request that triggers a preflight), so the
+browser would BLOCK it. The "keep permissions minimal via CORS" path in
+criterion 6 is therefore NOT viable as-is, and criterion 5's live round trip
+cannot succeed end-to-end until this is resolved.
+
+RESOLUTION (pick one):
+  A) Server-side: add an OPTIONS handler + Access-Control-Allow-Origin and
+     Access-Control-Allow-Headers: content-type for the extension origin on the
+     SvelteKit /api/taxnexus/assess route. Keeps the manifest at 3 permissions.
+  B) Extension-side: add "host_permissions": ["https://taxnexusapp.com/*"] to the
+     manifest. MV3 service-worker fetches that match a declared host permission
+     are NOT subject to CORS, so this works with no server change -- at the cost
+     of one broader permission (criterion 6's wording would need revisiting).
+
+This is now the top Week-2 prerequisite, ahead of the Playwright harness:
+without A or B, the E2E flow in criterion 8 cannot pass against the live API.
 ================================================================================
