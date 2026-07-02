@@ -11,8 +11,24 @@
 set -euo pipefail
 
 domains=(taxnexusapp.com www.taxnexusapp.com)
-# Re-add cms once cms.taxnexusapp.com has a DNS A record -> run with INCLUDE_CMS=1
-[ "${INCLUDE_CMS:-0}" != "0" ] && domains+=(cms.taxnexusapp.com)
+# cms.taxnexusapp.com must be in the cert whenever it's live: nginx serves a cms
+# vhost and the app hairpins server-to-Strapi via https://cms.taxnexusapp.com
+# (STRAPI_API_URL). But including a domain with no DNS fails the whole ACME request,
+# so decide automatically:
+#   INCLUDE_CMS unset/auto -> include cms only if it currently resolves (safe default)
+#   INCLUDE_CMS=1          -> force include (use once DNS is confirmed)
+#   INCLUDE_CMS=0          -> force exclude
+cms_host="cms.taxnexusapp.com"
+case "${INCLUDE_CMS:-auto}" in
+  1) domains+=("$cms_host"); echo "### Including ${cms_host} (INCLUDE_CMS=1)." ;;
+  0) echo "### Excluding ${cms_host} (INCLUDE_CMS=0)." ;;
+  *) if getent hosts "$cms_host" >/dev/null 2>&1; then
+       domains+=("$cms_host")
+       echo "### ${cms_host} resolves — including it in the certificate."
+     else
+       echo "### ${cms_host} has no DNS record — issuing apex+www only (set INCLUDE_CMS=1 to force)."
+     fi ;;
+esac
 primary="taxnexusapp.com"
 email="${EMAIL:-}"          # required for expiry notices
 staging="${STAGING:-0}"     # set STAGING=1 to test against LE staging (avoids rate limits)
