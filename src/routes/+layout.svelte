@@ -23,8 +23,18 @@
 	import GoogleTagManager from '$lib/components/tracking/GoogleTagManager.svelte';
 	import KlaroLoader from '$lib/components/tracking/KlaroLoader.svelte';
 	import { identifyUser, trackPageView } from '$lib/analytics/dataLayer';
+	import { authClient } from '$lib/auth-client';
 
 	let { children, data } = $props();
+
+	// Chatbot widget: lazy-loaded on mount, mounted only once the Better Auth
+	// session has resolved. Guests get the sign-in prompt; trial/paid get full chat.
+	const session = authClient.useSession();
+	let ChatbotComp = $state<typeof import('$lib/components/Chatbot.svelte').default | null>(null);
+	onMount(async () => {
+		const mod = await import('$lib/components/Chatbot.svelte');
+		ChatbotComp = mod.default;
+	});
 
 	const authState = $derived<'loading' | 'signed-in' | 'signed-out'>(
 		data.authSession === 'signed-in' ? 'signed-in' : 'signed-out'
@@ -121,3 +131,11 @@
 	</main>
 	<Footer showCookieSettings={Boolean(a?.gtmContainerId && !a.isUsLocale)} />
 </div>
+
+{#if ChatbotComp && !$session.isPending}
+	<ChatbotComp
+		authenticated={Boolean($session.data?.user)}
+		tier={a?.subscription_tier ?? null}
+		userId={$session.data?.user?.id ?? null}
+	/>
+{/if}

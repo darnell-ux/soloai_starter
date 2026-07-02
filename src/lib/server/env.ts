@@ -14,6 +14,8 @@ export type ValidatedEnv = {
 	/** @deprecated Use STRAPI_API_URL; kept for backward compatibility. */
 	STRAPI_BASE_URL: string;
 	STRAPI_API_TOKEN: string | undefined;
+	/** Anthropic key for the chat assistant (Claude Sonnet 4.6). Required in production. */
+	ANTHROPIC_API_KEY: string | undefined;
 	OPENAI_API_KEY: string | undefined;
 	OPENAI_MODEL: string;
 	TRANSLATION_ENABLED: boolean;
@@ -71,6 +73,7 @@ const PROD_SECRET_MIN = 32;
 
 export const SECRET_KEYS = [
 	'STRAPI_API_TOKEN',
+	'ANTHROPIC_API_KEY',
 	'OPENAI_API_KEY',
 	'TRANSLATION_API_TOKEN',
 	'MYSQL_PASSWORD',
@@ -158,6 +161,25 @@ function parseDatabaseUrl(key: string, raw: string | undefined, requiredInProduc
 		fail(key, 'expected valid database URL');
 	}
 	return raw;
+}
+
+/**
+ * Anthropic API key. Powers the /api/chat compliance assistant (Claude Sonnet
+ * 4.6). Optional — deliberately NOT required in production: a missing key must
+ * degrade only the chat feature (the route returns 503), never hard-exit boot
+ * and take the whole site down. Format-checked (`sk-ant-` prefix) when set;
+ * never logged.
+ *
+ * NOTE: env.ts uses hand-rolled validation (not Zod) for consistency with the
+ * rest of this file.
+ */
+function parseAnthropicKey(raw: string | undefined): string | undefined {
+	const v = emptyToUndefined(raw);
+	if (v === undefined) return undefined;
+	if (!v.startsWith('sk-ant-')) {
+		fail('ANTHROPIC_API_KEY', "expected key starting with 'sk-ant-'");
+	}
+	return v;
 }
 
 function assertSecretInProduction(key: string, raw: string | undefined): void {
@@ -500,6 +522,7 @@ function buildValidatedEnv(): ValidatedEnv {
 		PUBLIC_STRAPI_URL,
 		STRAPI_BASE_URL,
 		STRAPI_API_TOKEN: emptyToUndefined(process.env.STRAPI_API_TOKEN),
+		ANTHROPIC_API_KEY: parseAnthropicKey(process.env.ANTHROPIC_API_KEY),
 		OPENAI_API_KEY: emptyToUndefined(process.env.OPENAI_API_KEY),
 		OPENAI_MODEL,
 		TRANSLATION_ENABLED,
