@@ -107,19 +107,15 @@
 		open = false;
 	}
 
-	async function send() {
-		const text = input.trim();
-		if (!text || isStreaming) return;
+	// The server marks a mid-stream failure with a single null byte (one byte, so it
+	// can never split across chunks and never appears in normal model output).
+	const ERROR_SENTINEL = '\u0000';
 
-		input = '';
+	/** Stream a completion into an existing assistant message id. Shared by send + retry. */
+	async function runCompletion(assistantId: string) {
 		status = 'streaming';
 		errorMsg = '';
 		alertDismissed = false;
-
-		// Optimistic: user message shows immediately, assistant placeholder streams in.
-		chatStore.addMessage({ role: 'user', content: text });
-		const assistant = chatStore.addMessage({ role: 'assistant', content: '' });
-		await scrollToEnd();
 
 		// Sliding window: last 10, excluding errored/empty placeholders.
 		const payload = chatStore
@@ -134,8 +130,9 @@
 				body: JSON.stringify({ messages: payload })
 			});
 
+			// 429 covers both our own rate limit and an upstream "busy" (Anthropic 429).
 			if (res.status === 429) {
-				chatStore.markError(assistant.id);
+				chatStore.markError(assistantId);
 				status = 'rate-limited';
 				return;
 			}
@@ -145,19 +142,58 @@
 
 			const reader = res.body.getReader();
 			const decoder = new TextDecoder();
+			let interrupted = false;
 			for (;;) {
 				const { done, value } = await reader.read();
 				if (done) break;
-				chatStore.appendContent(assistant.id, decoder.decode(value, { stream: true }));
+				let text = decoder.decode(value, { stream: true });
+				if (text.includes(ERROR_SENTINEL)) {
+					// Mid-stream failure: keep any partial text, then surface the error.
+					text = text.replaceAll(ERROR_SENTINEL, '');
+					if (text) chatStore.appendContent(assistantId, text);
+					interrupted = true;
+					break;
+				}
+				chatStore.appendContent(assistantId, text);
 				await scrollToEnd();
 			}
-			chatStore.save();
-			status = 'idle';
+
+			if (interrupted) {
+				chatStore.markError(assistantId);
+				errorMsg = 'The response was interrupted before it finished.';
+				status = 'error';
+			} else {
+				chatStore.save();
+				status = 'idle';
+			}
 		} catch {
-			chatStore.markError(assistant.id);
+			chatStore.markError(assistantId);
 			errorMsg = 'Something went wrong. Please try again.';
 			status = 'error';
 		}
+	}
+
+	async function send() {
+		const text = input.trim();
+		if (!text || isStreaming) return;
+		input = '';
+
+		// Optimistic: user message shows immediately, assistant placeholder streams in.
+		chatStore.addMessage({ role: 'user', content: text });
+		const assistant = chatStore.addMessage({ role: 'assistant', content: '' });
+		await scrollToEnd();
+		await runCompletion(assistant.id);
+	}
+
+	/** Re-run the last failed turn: the errored assistant placeholder is the last message. */
+	async function retry() {
+		if (isStreaming) return;
+		const msgs = chatStore.messages;
+		const last = msgs[msgs.length - 1];
+		if (!last || last.role !== 'assistant') return;
+		chatStore.resetForRetry(last.id);
+		await scrollToEnd();
+		await runCompletion(last.id);
 	}
 </script>
 
@@ -258,6 +294,15 @@
 					{status === 'rate-limited' ? RATE_LIMIT_MSG : errorMsg}
 				</span>
 				<span class="flex gap-1">
+					{#if status === 'error'}
+						<button
+							type="button"
+							data-testid="chat-retry"
+							class="btn btn-xs border-0"
+							style="background-color: {AMBER}; color: {NAVY};"
+							onclick={retry}>Retry</button
+						>
+					{/if}
 					<button type="button" class="btn btn-ghost btn-xs" onclick={snoozeAlert}>Snooze</button>
 					<button type="button" class="btn btn-ghost btn-xs" onclick={dismissAlert}>Dismiss</button>
 				</span>

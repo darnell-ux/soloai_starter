@@ -6,7 +6,7 @@
  * subscription tier to the system prompt context. Privacy: message content is
  * NEVER logged — only requestId, userId, messageCount, latency and token usage.
  */
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -25,6 +25,14 @@ const MAX_MESSAGES = 20;
 const MAX_CONTENT_CHARS = 4_000;
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 20;
+
+/**
+ * Single null byte marking a mid-stream failure. Emitted once the 200 headers
+ * are already sent (so the status can't change) — the client strips it, keeps
+ * any partial text, and shows an error/retry state. One byte: it can never
+ * split across chunks and never appears in normal model output.
+ */
+const STREAM_ERROR_SENTINEL = '\u0000';
 
 const SYSTEM_PROMPT =
 	'You are a California sales tax nexus compliance assistant for Amazon FBA sellers. ' +
@@ -72,20 +80,36 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 	const user = locals.user as { id?: string | number } | undefined;
 	const userId = user?.id != null ? String(user.id) : 'anon';
 
-	// --- content type + JSON parse (shared guard) -----------------------------
-	const raw = await readJsonBody(request);
+	// Every client-facing response (success OR error) carries the correlation id,
+	// both as a header and in the JSON body for error payloads.
+	const fail = (status: number, body: Record<string, unknown>, extraHeaders: Record<string, string> = {}) =>
+		json({ ...body, requestId }, { status, headers: { 'X-Request-Id': requestId, ...extraHeaders } });
+	const log = (tokens: number, kind: string, messageCount: number) =>
+		logChat({ requestId, userId, messageCount, latencyMs: Date.now() - startedAt, tokens, kind });
+
+	// --- content type + JSON parse (shared guard; convert its throw to keep the id) ---
+	let raw: unknown;
+	try {
+		raw = await readJsonBody(request);
+	} catch (e) {
+		const status = typeof (e as { status?: unknown })?.status === 'number' ? (e as { status: number }).status : 400;
+		log(0, 'bad_request', 0);
+		return fail(status, { error: 'bad_request' });
+	}
 
 	// --- validation -----------------------------------------------------------
 	const parsed = bodySchema.safeParse(raw);
 	if (!parsed.success) {
-		throw error(400, { message: 'invalid_body' });
+		log(0, 'invalid_body', 0);
+		return fail(400, { error: 'invalid_body' });
 	}
 
 	// Anthropic requires the first message to be a user turn. The client's sliding
 	// window can begin on an assistant turn, so drop any leading assistant messages.
 	const firstUser = parsed.data.messages.findIndex((m) => m.role === 'user');
 	if (firstUser === -1) {
-		throw error(400, { message: 'invalid_body' });
+		log(0, 'invalid_body', 0);
+		return fail(400, { error: 'invalid_body' });
 	}
 	const messages = parsed.data.messages.slice(firstUser);
 
@@ -94,38 +118,19 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 		userId !== 'anon' ? `chat:user:${userId}` : `chat:ip:${clientIp(request, getClientAddress)}`;
 	const rl = rateLimit(rateKey, { windowMs: RATE_WINDOW_MS, max: RATE_MAX });
 	if (rl.limited) {
-		logChat({
-			requestId,
-			userId,
-			messageCount: messages.length,
-			latencyMs: Date.now() - startedAt,
-			tokens: 0,
-			kind: 'rate_limited'
-		});
-		return json(
-			{ error: 'rate_limited', requestId },
-			{
-				status: 429,
-				headers: {
-					'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)),
-					'X-Request-Id': requestId
-				}
-			}
+		log(0, 'rate_limited', messages.length);
+		return fail(
+			429,
+			{ error: 'rate_limited' },
+			{ 'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)) }
 		);
 	}
 
 	// --- Anthropic configuration ----------------------------------------------
 	const apiKey = getEnv().ANTHROPIC_API_KEY;
 	if (!apiKey) {
-		logChat({
-			requestId,
-			userId,
-			messageCount: messages.length,
-			latencyMs: Date.now() - startedAt,
-			tokens: 0,
-			kind: 'not_configured'
-		});
-		throw error(503, { message: 'chat_unavailable' });
+		log(0, 'not_configured', messages.length);
+		return fail(503, { error: 'chat_unavailable' });
 	}
 
 	// Auth-aware system prompt: include the subscription tier for signed-in users.
@@ -164,24 +169,27 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 	}
 	const deltas = textDeltas();
 
-	// Pre-flight the first chunk so pre-output failures (bad request, expired key,
-	// network error) surface as a real HTTP status the client can detect — rather
-	// than a 200 whose body is an error notice that renders as a normal answer.
+	// Pre-flight the first chunk so pre-output failures surface as a real HTTP
+	// status the client can detect (and distinguish upstream 429 "busy" from 5xx),
+	// rather than a 200 whose body is an error notice.
 	let firstChunk: IteratorResult<string>;
 	try {
 		firstChunk = await deltas.next();
-	} catch {
+	} catch (e) {
 		clearTimeout(timeout);
 		const aborted = controller.signal.aborted;
-		logChat({
-			requestId,
-			userId,
-			messageCount: messages.length,
-			latencyMs: Date.now() - startedAt,
-			tokens: 0,
-			kind: aborted ? 'timeout' : 'upstream_error'
-		});
-		throw error(aborted ? 504 : 502, { message: 'chat_upstream_error' });
+		const upstreamStatus =
+			typeof (e as { status?: unknown })?.status === 'number' ? (e as { status: number }).status : undefined;
+		if (aborted) {
+			log(0, 'timeout', messages.length);
+			return fail(504, { error: 'timeout' });
+		}
+		if (upstreamStatus === 429) {
+			log(0, 'upstream_rate_limited', messages.length);
+			return fail(429, { error: 'upstream_busy' }, { 'Retry-After': '5' });
+		}
+		log(0, 'upstream_error', messages.length);
+		return fail(502, { error: 'chat_upstream_error' });
 	}
 
 	const encoder = new TextEncoder();
@@ -197,30 +205,14 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 				const final = await messageStream.finalMessage();
 				tokens = (final.usage.input_tokens ?? 0) + (final.usage.output_tokens ?? 0);
 				ctrl.close();
-				logChat({
-					requestId,
-					userId,
-					messageCount: messages.length,
-					latencyMs: Date.now() - startedAt,
-					tokens,
-					kind: final.stop_reason === 'refusal' ? 'refusal' : 'completed'
-				});
+				log(tokens, final.stop_reason === 'refusal' ? 'refusal' : 'completed', messages.length);
 			} catch {
 				// Failure AFTER the first token: the 200 headers are already sent, so
-				// the status can't change — degrade with an inline notice.
+				// signal the client in-band with the sentinel (it strips + shows retry).
 				const aborted = controller.signal.aborted;
-				logChat({
-					requestId,
-					userId,
-					messageCount: messages.length,
-					latencyMs: Date.now() - startedAt,
-					tokens,
-					kind: aborted ? 'timeout' : 'stream_error'
-				});
+				log(tokens, aborted ? 'timeout' : 'stream_error', messages.length);
 				try {
-					ctrl.enqueue(
-						encoder.encode('\n\n[The assistant response was interrupted. Please try again.]')
-					);
+					ctrl.enqueue(encoder.encode(STREAM_ERROR_SENTINEL));
 				} catch {
 					/* controller already closed */
 				}

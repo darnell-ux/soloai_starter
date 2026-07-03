@@ -88,6 +88,15 @@ class ChatStore {
 		}
 	}
 
+	/** Prepare an errored assistant message for a retry: clear its content + error flag. */
+	resetForRetry(id: string): void {
+		const m = this.messages.find((x) => x.id === id);
+		if (m) {
+			m.content = '';
+			m.error = false;
+		}
+	}
+
 	/** Clear the transcript and its persisted copy. */
 	clear(): void {
 		this.messages = [];
