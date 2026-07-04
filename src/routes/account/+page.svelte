@@ -5,6 +5,7 @@
 	import SeoHead from '$lib/components/SeoHead.svelte';
 	import { authClient } from '$lib/auth-client';
 	import { localizeHref } from '$lib/paraglide/runtime';
+	import { formatDate } from '$lib/i18n/format';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { PageProps } from './$types';
 
@@ -319,7 +320,7 @@
 						{#if data.subscription.endDate}
 							<div class="flex flex-wrap gap-2">
 								<dt class="font-medium text-base-content/70">{m.account_subscription_renews_label()}</dt>
-								<dd>{new Date(data.subscription.endDate).toLocaleString()}</dd>
+								<dd>{formatDate(data.subscription.endDate)}</dd>
 							</div>
 						{/if}
 						{#if data.subscription.priceId}

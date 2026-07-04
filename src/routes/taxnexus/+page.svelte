@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { localizeHref } from '$lib/paraglide/runtime';
+	import { formatCurrency } from '$lib/i18n/format';
 	import SeoHead from '$lib/components/SeoHead.svelte';
 	import Marks from '$lib/components/landing/Marks.svelte';
 
@@ -363,7 +364,7 @@
 								: 'border-base-300 bg-base-100'}"
 						>
 							<p class="font-mono text-xs font-bold uppercase tracking-[0.1em] text-secondary">{kind}</p>
-							<p class="text-3xl font-black text-base-content">${Math.round(row.total).toLocaleString()}</p>
+							<p class="text-3xl font-black text-base-content">{formatCurrency(row.total)}</p>
 							<dl class="mt-3 space-y-1 text-[11px] text-muted">
 								<div class="flex justify-between gap-2">
 									<dt>Min tax</dt>
