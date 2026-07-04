@@ -1,5 +1,6 @@
 import { extractLocaleFromRequest } from '$lib/paraglide/runtime';
 import { paymentProcessorForLocale } from '$lib/server/billing/payment-provider';
+import { tierDisplayName } from '$lib/billing/tier-labels';
 import { getEnv } from '$lib/server/env';
 import { getUserBilling } from '$lib/server/stripe/billing-store';
 import { tierForVariantId } from '$lib/server/lemon/tier-variants';
@@ -32,10 +33,8 @@ function tierFromStripePriceId(priceId: string | undefined): string | null {
 	if (!priceId) return null;
 	const b = process.env.STRIPE_PRICE_BASIC?.trim();
 	const p = process.env.STRIPE_PRICE_PRO?.trim();
-	const t = process.env.STRIPE_PRICE_TEAM?.trim();
 	if (b && priceId === b) return 'basic';
 	if (p && priceId === p) return 'pro';
-	if (t && priceId === t) return 'team';
 	return null;
 }
 
@@ -56,32 +55,26 @@ export const load: PageServerLoad = async ({ locals, request }) => {
 		currentTier = tierForVariantId(billing.lemonSqueezyVariantId) ?? null;
 	}
 
+	// TaxNexus tiers. Internal keys stay `basic`/`pro` (billing plumbing +
+	// STRIPE_PRICE_* / LEMON_VARIANT_* env names) — `title` is the product name.
+	// Display prices default to the published USD amounts; override with PRICE_*_USD.
 	const plans = [
 		{
 			tier: 'basic' as const,
 			priceId: envPrice('STRIPE_PRICE_BASIC'),
 			lemonVariantId: envVariant('LEMON_VARIANT_BASIC'),
-			title: 'Basic',
-			description: 'Essential features for individuals getting started.',
-			amountUsd: envAmount('PRICE_BASIC_USD'),
+			title: tierDisplayName('basic'),
+			description: 'Ongoing California nexus monitoring — get alerted the moment your FBA inventory creates exposure.',
+			amountUsd: envAmount('PRICE_BASIC_USD') ?? 39,
 			interval: 'month' as const
 		},
 		{
 			tier: 'pro' as const,
 			priceId: envPrice('STRIPE_PRICE_PRO'),
 			lemonVariantId: envVariant('LEMON_VARIANT_PRO'),
-			title: 'Pro',
-			description: 'Full power for growing teams and daily use.',
-			amountUsd: envAmount('PRICE_PRO_USD'),
-			interval: 'month' as const
-		},
-		{
-			tier: 'team' as const,
-			priceId: envPrice('STRIPE_PRICE_TEAM'),
-			lemonVariantId: envVariant('LEMON_VARIANT_TEAM'),
-			title: 'Team',
-			description: 'Scale with collaboration and priority support.',
-			amountUsd: envAmount('PRICE_TEAM_USD'),
+			title: tierDisplayName('pro'),
+			description: 'For multi-store and agency sellers — nexus monitoring across every account with consolidated reporting.',
+			amountUsd: envAmount('PRICE_PRO_USD') ?? 119,
 			interval: 'month' as const
 		}
 	];
