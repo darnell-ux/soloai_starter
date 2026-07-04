@@ -12,6 +12,19 @@
 	let checkoutError = $state('');
 	let checkoutLoading = $state<string | null>(null);
 
+	/** Locale-aware currency formatting (base price in USD; interval shown separately). */
+	function formatPrice(amountUsd: number): string {
+		try {
+			return new Intl.NumberFormat(data.locale, {
+				style: 'currency',
+				currency: 'USD',
+				maximumFractionDigits: Number.isInteger(amountUsd) ? 0 : 2
+			}).format(amountUsd);
+		} catch {
+			return `$${amountUsd}`;
+		}
+	}
+
 	function goToLoginForCheckout() {
 		const loginPath = localizeHref('/login') as string;
 		const q = new URLSearchParams({
@@ -99,6 +112,22 @@
 		{/if}
 	</p>
 
+	{#snippet priceLine(plan: (typeof data.plans)[number])}
+		{#if plan.amountUsd != null}
+			<p class="mt-1">
+				<span class="text-3xl font-bold">{formatPrice(plan.amountUsd)}</span>
+				<span class="text-sm text-base-content/70">/{plan.interval === 'month' ? 'mo' : 'yr'}</span>
+			</p>
+			{#if data.checkoutProcessor === 'lemonsqueezy'}
+				<p class="text-xs text-base-content/60">
+					Billed in your local currency; taxes handled at checkout.
+				</p>
+			{/if}
+		{:else}
+			<p class="mt-1 text-sm text-base-content/60">Pricing shown at checkout.</p>
+		{/if}
+	{/snippet}
+
 	{#if data.checkoutProcessor === 'stripe'}
 		{#if !data.stripeCheckoutEnabled}
 			<p class="mt-8 rounded-box bg-base-200 px-4 py-3 text-sm text-base-content/80">
@@ -121,6 +150,7 @@
 										<span class="badge badge-success badge-sm">Current</span>
 									{/if}
 								</h2>
+								{@render priceLine(plan)}
 								<p class="text-sm text-base-content/80">{plan.description}</p>
 								<div class="card-actions mt-4">
 									{#if data.isLoggedIn}
@@ -166,7 +196,8 @@
 									<span class="badge badge-success badge-sm">Current</span>
 								{/if}
 							</h2>
-							<p class="text-sm text-base-content/80">{plan.description}</p>
+							{@render priceLine(plan)}
+								<p class="text-sm text-base-content/80">{plan.description}</p>
 							<div class="card-actions mt-4">
 								{#if data.isLoggedIn}
 									<button
