@@ -31,11 +31,10 @@
 		The Service provides tools and guidance to help Amazon FBA sellers understand potential California
 		sales-tax nexus exposure, including automated estimates and an AI assistant.
 		<strong>
-			The Service is for general informational purposes only and does not constitute tax, legal, or
-			accounting advice.
+			TaxNexus provides informational tools only and does not constitute tax, legal, or financial
+			advice. Users should consult a qualified tax professional for their specific filing obligations.
 		</strong>
-		Estimates and AI responses may be incomplete or inaccurate for your situation. Always consult a
-		qualified tax professional before making filing or compliance decisions.
+		Estimates and AI responses may be incomplete or inaccurate for your situation.
 	</p>
 
 	<h2>3. Accounts</h2>
