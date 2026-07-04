@@ -48,6 +48,12 @@
 			<strong>Cookies &amp; local storage.</strong> Essential items (your login session, language
 			preference, and your cookie-consent choice) plus optional analytics cookies (see §3).
 		</li>
+		<li>
+			<strong>AI compliance assistant inputs.</strong> Messages you send to the TaxNexus compliance
+			assistant are processed by Anthropic’s Claude API to generate responses. These messages are
+			<strong>not stored</strong> by TaxNexus and are <strong>never written to our logs</strong>. Only
+			message count and response metadata are retained for rate-limiting and cost-monitoring purposes.
+		</li>
 	</ul>
 
 	<h2>2. How we use information</h2>
@@ -87,6 +93,12 @@
 			full card numbers.
 		</li>
 		<li><strong>Content &amp; email platforms</strong> (self-hosted CMS and email/marketing) — to serve site content and send communications.</li>
+		<li>
+			<strong>Anthropic</strong> — AI/language-model processing for the compliance assistant. Chat
+			messages are processed to generate responses but are not retained beyond the session, per
+			Anthropic’s API data-handling policy. See
+			<a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">Anthropic’s Privacy Policy</a>.
+		</li>
 	</ul>
 
 	<h2>6. Data retention</h2>
