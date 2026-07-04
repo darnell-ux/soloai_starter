@@ -207,3 +207,77 @@ docker compose build app strapi && docker compose up -d
 The repo ships rotation tooling: `npm run rotate-secret`, plus
 `scripts/secret-rotation-scheduled.ts` / `secret-rotation-on-demand.ts`. Rotate
 on any suspected exposure; `.env` is git-ignored and must never be committed.
+
+---
+
+## Appendix — VM / staging test before the real deploy
+
+Bring the whole stack up on a throwaway VM first. The compose stack, phases, and
+`deploy.sh` are identical; the only wrinkles are DNS and TLS, because you usually
+won't have the real domains pointed at the VM.
+
+### The one gotcha: the app → Strapi HTTPS hairpin
+
+The app calls Strapi at `https://cms.taxnexusapp.com` (server-side), and **Node
+rejects untrusted certificates**. On a VM you'll typically have a self-signed cert
+or a Let's Encrypt **staging** cert — **neither is trusted by Node** — so the app
+container's `fetch()` to Strapi fails with `self-signed certificate in chain` and
+CMS content looks broken even when everything else is fine. Pick the path that
+matches your VM:
+
+**Path A — VM is internet-reachable at the real domains.** Point the DNS (or a
+temporary sub-domain) at the VM and run the real flow, LE **staging** first to
+avoid rate limits:
+
+```bash
+EMAIL=you@yourdomain.com STAGING=1 bash scripts/init-letsencrypt.sh   # dry run
+EMAIL=you@yourdomain.com bash scripts/init-letsencrypt.sh             # real cert
+```
+
+Note: LE **staging certs are also untrusted by Node**, so treat staging as an
+ACME/plumbing test only — switch to a real cert (or Path B) before testing the
+app→Strapi hairpin.
+
+**Path B — isolated VM (no public DNS).** Fake the hostnames and make the app
+trust your own cert. Add to the VM's `/etc/hosts`:
+
+```
+127.0.0.1  taxnexusapp.com www.taxnexusapp.com cms.taxnexusapp.com
+```
+
+Generate a self-signed cert covering those names into the certbot volume path
+(`/etc/letsencrypt/live/taxnexusapp.com/{fullchain,privkey}.pem`), then make the
+**app** container trust it by mounting the CA and setting `NODE_EXTRA_CA_CERTS`.
+In `docker-compose.override.yml` (VM-only; don't commit to prod):
+
+```yaml
+services:
+  app:
+    environment:
+      NODE_EXTRA_CA_CERTS: /certs/ca.pem
+    volumes:
+      - ./vm-ca.pem:/certs/ca.pem:ro
+```
+
+**Path C — quickest smoke test, skip TLS entirely (non-prod only).** Run the app
+with `NODE_ENV` unset/`development` and point it at Strapi over the internal
+network — this bypasses the production HTTPS validator and the hairpin:
+
+```
+STRAPI_API_URL=http://strapi:1337
+```
+
+Use this only to verify the app boots, the chatbot streams, and pages render; it
+does **not** exercise the real prod TLS path.
+
+### What to confirm on the VM
+
+- `docker compose config -q` and (once up) `docker compose exec nginx nginx -t`.
+- App boots (no env-validator exit): `docker compose logs app`.
+- `/api/chat` streams (with a real `ANTHROPIC_API_KEY` in the VM `.env`).
+- `/api/taxnexus/assess` returns JSON + `X-Request-Id`.
+- CMS content renders (Path A real cert or Path B trusted CA) — this is the check
+  the hairpin gotcha above is about.
+
+Once the VM run is clean, the real deploy is just Phases 1–7 with real DNS and a
+real Let's Encrypt cert.
