@@ -135,11 +135,11 @@
 			</p>
 		{:else if !data.hasStripePlan}
 			<p class="mt-8 rounded-box bg-base-200 px-4 py-3 text-sm text-base-content/80">
-				Add <code class="text-xs">STRIPE_PRICE_BASIC</code>, <code class="text-xs">STRIPE_PRICE_PRO</code>, and/or
-				<code class="text-xs">STRIPE_PRICE_TEAM</code> for live Stripe tiers.
+				Add <code class="text-xs">STRIPE_PRICE_BASIC</code> and/or
+					<code class="text-xs">STRIPE_PRICE_PRO</code> for live Stripe tiers.
 			</p>
 		{:else}
-			<ul class="mt-10 grid gap-6 md:grid-cols-3">
+			<ul class="mt-10 grid max-w-3xl gap-6 sm:grid-cols-2">
 				{#each data.plans as plan (plan.tier)}
 					{#if plan.priceId}
 						<li class="card bg-base-100 shadow-sm">
@@ -181,8 +181,8 @@
 		</p>
 	{:else if !data.hasLemonPlan}
 		<p class="mt-8 rounded-box bg-base-200 px-4 py-3 text-sm text-base-content/80">
-			Add <code class="text-xs">LEMON_VARIANT_BASIC</code>, <code class="text-xs">LEMON_VARIANT_PRO</code>, and/or
-			<code class="text-xs">LEMON_VARIANT_TEAM</code> for Lemon Squeezy tiers.
+			Add <code class="text-xs">LEMON_VARIANT_BASIC</code> and/or
+			<code class="text-xs">LEMON_VARIANT_PRO</code> for Lemon Squeezy tiers.
 		</p>
 	{:else}
 		<ul class="mt-10 grid gap-6 md:grid-cols-3">

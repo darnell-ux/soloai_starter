@@ -6,6 +6,7 @@
 	import { authClient } from '$lib/auth-client';
 	import { localizeHref } from '$lib/paraglide/runtime';
 	import { formatDate } from '$lib/i18n/format';
+	import { tierDisplayName } from '$lib/billing/tier-labels';
 	import * as m from '$lib/paraglide/messages.js';
 	import type { PageProps } from './$types';
 
@@ -314,7 +315,7 @@
 						{#if data.subscription.tier}
 							<div class="flex flex-wrap gap-2">
 								<dt class="font-medium text-base-content/70">{m.account_subscription_tier_label()}</dt>
-								<dd class="capitalize">{data.subscription.tier}</dd>
+								<dd>{tierDisplayName(data.subscription.tier)}</dd>
 							</div>
 						{/if}
 						{#if data.subscription.endDate}
