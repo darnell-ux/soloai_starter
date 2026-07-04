@@ -2,14 +2,132 @@
 	import SeoHead from '$lib/components/SeoHead.svelte';
 
 	export const prerender = true;
+
+	// NOTE (for the operator): this is a technical draft written to match what the
+	// application actually does today (analytics, consent, processors). It is not
+	// legal advice — have counsel review, and confirm the entity name, contact
+	// address, and governing jurisdiction before launch. Legal text is intentionally
+	// in English; professional translation is a separate step from UI localization.
+	const lastUpdated = 'July 4, 2026';
+	const contactEmail = 'privacy@taxnexusapp.com';
 </script>
 
 <SeoHead
-	pageTitle="Privacy"
-	description="How we collect, use, and protect personal data when you use our services."
+	pageTitle="Privacy Policy"
+	description="How TaxNexus collects, uses, and protects personal data — analytics, cookies, consent, and your rights."
 />
 
-<main>
-	<h1>Privacy</h1>
-	<p>Placeholder content for the privacy policy page.</p>
-</main>
+<article class="prose prose-sm mx-auto max-w-3xl px-4 py-10">
+	<h1>Privacy Policy</h1>
+	<p><em>Last updated: {lastUpdated}</em></p>
+
+	<p>
+		TaxNexus (“we”, “us”) helps Amazon FBA sellers understand potential California sales-tax nexus
+		exposure. This policy explains what we collect, why, who we share it with, and the choices you
+		have. It reflects how the product actually behaves.
+	</p>
+
+	<h2>1. Information we collect</h2>
+	<ul>
+		<li>
+			<strong>Account information.</strong> When you create an account we store your name and email
+			address (via our authentication system) and, for subscribers, a billing status.
+		</li>
+		<li>
+			<strong>Nexus assessment inputs.</strong> Figures you enter (or that our browser extension
+			detects on Amazon, such as fulfillment-center presence) are used to compute an exposure
+			estimate. The assessment endpoint is stateless: these inputs are <strong>not stored</strong>
+			and are <strong>never written to our logs</strong>.
+		</li>
+		<li>
+			<strong>Usage &amp; product analytics.</strong> With your consent where required, we use Google
+			Analytics 4 (via Google Tag Manager) and Hotjar to understand pages viewed, interactions,
+			approximate location, and device/browser — to improve the product.
+		</li>
+		<li>
+			<strong>Cookies &amp; local storage.</strong> Essential items (your login session, language
+			preference, and your cookie-consent choice) plus optional analytics cookies (see §3).
+		</li>
+	</ul>
+
+	<h2>2. How we use information</h2>
+	<ul>
+		<li>Provide the service and compute nexus assessments.</li>
+		<li>Operate accounts, subscriptions, and support.</li>
+		<li>Understand and improve usage (analytics), subject to your consent.</li>
+		<li>Send service and, where you’ve opted in, product communications (via our email platform).</li>
+	</ul>
+
+	<h2>3. Cookies &amp; consent</h2>
+	<p>
+		<strong>Essential cookies</strong> are always on — they’re required to log in, remember your
+		language, and record your consent choice.
+	</p>
+	<p>
+		<strong>Analytics cookies are consent-gated and region-aware.</strong> In the United States they
+		are enabled by default under Google Consent Mode. In the EU/UK and other regions, analytics stay
+		off until you opt in through our cookie banner. You can review or change your choices at any time
+		via <strong>“Cookie settings”</strong> in the site footer.
+	</p>
+
+	<h2>4. How we protect your identity in analytics</h2>
+	<p>
+		Before any identifier reaches our analytics providers, we replace your account ID with a one-way
+		hash generated using a secret key. Analytics providers receive this pseudonymous value, not your
+		raw account identity.
+	</p>
+
+	<h2>5. Service providers &amp; third parties</h2>
+	<ul>
+		<li><strong>Google</strong> (Analytics 4 / Tag Manager) — usage analytics.</li>
+		<li><strong>Hotjar</strong> — product/behavior analytics.</li>
+		<li>
+			<strong>Stripe</strong> (US) and <strong>Lemon Squeezy</strong> (international, as Merchant of
+			Record) — payment processing. Card details go directly to the processor; we never see or store
+			full card numbers.
+		</li>
+		<li><strong>Content &amp; email platforms</strong> (self-hosted CMS and email/marketing) — to serve site content and send communications.</li>
+	</ul>
+
+	<h2>6. Data retention</h2>
+	<p>
+		Account data is kept while your account is active and for a reasonable period afterward as needed
+		for legal, accounting, or security purposes. Nexus assessment inputs are not retained. Analytics
+		data is retained per each provider’s configured retention period.
+	</p>
+
+	<h2>7. International transfers</h2>
+	<p>
+		The service is operated from, and data is processed in, the United States. If you access it from
+		another region, you consent to processing in the United States.
+	</p>
+
+	<h2>8. Your rights &amp; choices</h2>
+	<ul>
+		<li>Withdraw or change analytics consent anytime via “Cookie settings”.</li>
+		<li>
+			Depending on your location, you may have rights to access, correct, delete, or export your
+			data, and to opt out of “sale”/“sharing” for cross-context advertising (we do not sell personal
+			data).
+		</li>
+		<li>To exercise any right, contact us at <a href={'mailto:' + contactEmail}>{contactEmail}</a>.</li>
+	</ul>
+
+	<h2>9. Security</h2>
+	<p>
+		We use industry-standard measures (encryption in transit, access controls, minimized data
+		collection). No method of transmission or storage is perfectly secure.
+	</p>
+
+	<h2>10. Children</h2>
+	<p>The service is intended for businesses and is not directed to children under 16.</p>
+
+	<h2>11. Changes to this policy</h2>
+	<p>
+		We may update this policy; material changes will be reflected by the “Last updated” date above and,
+		where appropriate, additional notice.
+	</p>
+
+	<h2>12. Contact</h2>
+	<p>Questions or requests: <a href={'mailto:' + contactEmail}>{contactEmail}</a>.</p>
+</article>

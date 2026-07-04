@@ -15,6 +15,19 @@ function envVariant(key: string): string | undefined {
 	return v && /^\d+$/.test(v) ? v : undefined;
 }
 
+/**
+ * Optional display price (base monthly USD) shown in-app before checkout, e.g.
+ * `PRICE_BASIC_USD=29`. Purely for display — the actual charge comes from the
+ * Stripe price / Lemon variant. Left unset → the card shows "Pricing shown at
+ * checkout" rather than a fabricated number.
+ */
+function envAmount(key: string): number | null {
+	const v = process.env[key]?.trim();
+	if (!v) return null;
+	const n = Number.parseFloat(v);
+	return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 function tierFromStripePriceId(priceId: string | undefined): string | null {
 	if (!priceId) return null;
 	const b = process.env.STRIPE_PRICE_BASIC?.trim();
@@ -49,21 +62,27 @@ export const load: PageServerLoad = async ({ locals, request }) => {
 			priceId: envPrice('STRIPE_PRICE_BASIC'),
 			lemonVariantId: envVariant('LEMON_VARIANT_BASIC'),
 			title: 'Basic',
-			description: 'Essential features for individuals getting started.'
+			description: 'Essential features for individuals getting started.',
+			amountUsd: envAmount('PRICE_BASIC_USD'),
+			interval: 'month' as const
 		},
 		{
 			tier: 'pro' as const,
 			priceId: envPrice('STRIPE_PRICE_PRO'),
 			lemonVariantId: envVariant('LEMON_VARIANT_PRO'),
 			title: 'Pro',
-			description: 'Full power for growing teams and daily use.'
+			description: 'Full power for growing teams and daily use.',
+			amountUsd: envAmount('PRICE_PRO_USD'),
+			interval: 'month' as const
 		},
 		{
 			tier: 'team' as const,
 			priceId: envPrice('STRIPE_PRICE_TEAM'),
 			lemonVariantId: envVariant('LEMON_VARIANT_TEAM'),
 			title: 'Team',
-			description: 'Scale with collaboration and priority support.'
+			description: 'Scale with collaboration and priority support.',
+			amountUsd: envAmount('PRICE_TEAM_USD'),
+			interval: 'month' as const
 		}
 	];
 
