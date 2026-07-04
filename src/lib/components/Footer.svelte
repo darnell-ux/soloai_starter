@@ -45,6 +45,10 @@
 				</button>
 			{/if}
 		</nav>
+		<p class="max-w-3xl text-xs text-base-content/60">
+			TaxNexus provides informational tools only and does not constitute tax, legal, or financial
+			advice. Users should consult a qualified tax professional for their specific filing obligations.
+		</p>
 		<p class="text-sm text-base-content/70">{m.footer_copyright({ year: String(year) })}</p>
 	</div>
 </footer>
