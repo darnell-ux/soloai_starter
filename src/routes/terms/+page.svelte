@@ -21,6 +21,7 @@
 
 	<h2>1. Agreement</h2>
 	<p>
+		TaxNexus is operated by Consult Solutions, an Oakland, California company (“we”, “us”, “our”).
 		By accessing or using TaxNexus (the “Service”), you agree to these Terms. If you do not agree, do
 		not use the Service.
 	</p>
@@ -98,7 +99,12 @@
 	</p>
 
 	<h2>11. Governing law</h2>
-	<p>These Terms are governed by the laws of the operator’s jurisdiction, without regard to conflict-of-laws rules.</p>
+	<p>
+		These Terms are governed by the laws of the State of California, without regard to
+		conflict-of-laws rules. Any disputes arising from or relating to these Terms or the Service shall
+		be subject to the exclusive jurisdiction of the state and federal courts located in Alameda County,
+		California, and you consent to personal jurisdiction in those courts.
+	</p>
 
 	<h2>12. Contact</h2>
 	<p>Questions: <a href={'mailto:' + contactEmail}>{contactEmail}</a>.</p>
