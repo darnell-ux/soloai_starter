@@ -15,6 +15,7 @@ import { getEnv } from '$lib/server/env';
 import { rateLimit } from '$lib/server/rate-limiter';
 import { readJsonBody } from '$lib/server/http/read-json';
 import { getUserBilling } from '$lib/server/stripe/billing-store';
+import { getGroundingContext } from '$lib/server/strapi/grounding';
 
 /** Best fit for an interactive compliance widget: fast, adaptive, ~1/3 Opus cost. */
 const CHAT_MODEL = 'claude-sonnet-4-6';
@@ -56,6 +57,7 @@ function logChat(fields: {
 	messageCount: number;
 	latencyMs: number;
 	tokens: number;
+	groundedDocs: number;
 	kind?: string;
 }): void {
 	console.info('[chat]', fields);
@@ -84,8 +86,8 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 	// both as a header and in the JSON body for error payloads.
 	const fail = (status: number, body: Record<string, unknown>, extraHeaders: Record<string, string> = {}) =>
 		json({ ...body, requestId }, { status, headers: { 'X-Request-Id': requestId, ...extraHeaders } });
-	const log = (tokens: number, kind: string, messageCount: number) =>
-		logChat({ requestId, userId, messageCount, latencyMs: Date.now() - startedAt, tokens, kind });
+	const log = (tokens: number, kind: string, messageCount: number, groundedDocs: number) =>
+		logChat({ requestId, userId, messageCount, latencyMs: Date.now() - startedAt, tokens, groundedDocs, kind });
 
 	// --- content type + JSON parse (shared guard; convert its throw to keep the id) ---
 	let raw: unknown;
@@ -93,14 +95,14 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 		raw = await readJsonBody(request);
 	} catch (e) {
 		const status = typeof (e as { status?: unknown })?.status === 'number' ? (e as { status: number }).status : 400;
-		log(0, 'bad_request', 0);
+		log(0, 'bad_request', 0, 0);
 		return fail(status, { error: 'bad_request' });
 	}
 
 	// --- validation -----------------------------------------------------------
 	const parsed = bodySchema.safeParse(raw);
 	if (!parsed.success) {
-		log(0, 'invalid_body', 0);
+		log(0, 'invalid_body', 0, 0);
 		return fail(400, { error: 'invalid_body' });
 	}
 
@@ -108,7 +110,7 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 	// window can begin on an assistant turn, so drop any leading assistant messages.
 	const firstUser = parsed.data.messages.findIndex((m) => m.role === 'user');
 	if (firstUser === -1) {
-		log(0, 'invalid_body', 0);
+		log(0, 'invalid_body', 0, 0);
 		return fail(400, { error: 'invalid_body' });
 	}
 	const messages = parsed.data.messages.slice(firstUser);
@@ -118,7 +120,7 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 		userId !== 'anon' ? `chat:user:${userId}` : `chat:ip:${clientIp(request, getClientAddress)}`;
 	const rl = rateLimit(rateKey, { windowMs: RATE_WINDOW_MS, max: RATE_MAX });
 	if (rl.limited) {
-		log(0, 'rate_limited', messages.length);
+		log(0, 'rate_limited', messages.length, 0);
 		return fail(
 			429,
 			{ error: 'rate_limited' },
@@ -129,7 +131,7 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 	// --- Anthropic configuration ----------------------------------------------
 	const apiKey = getEnv().ANTHROPIC_API_KEY;
 	if (!apiKey) {
-		log(0, 'not_configured', messages.length);
+		log(0, 'not_configured', messages.length, 0);
 		return fail(503, { error: 'chat_unavailable' });
 	}
 
@@ -141,6 +143,11 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 			`\n\nContext: the user is authenticated on the "${tier}" plan. ` +
 			'Tailor guidance to their situation where relevant, but never expose internal billing details.';
 	}
+
+	// Strapi knowledge-base grounding: warm cache adds ~0ms; cold cache blocks
+	// at most 1.5s; Strapi down = ungrounded chat, never failed chat.
+	const grounding = await getGroundingContext(messages);
+	if (grounding.block) systemPrompt += grounding.block;
 
 	// --- streaming completion with a hard 30s timeout -------------------------
 	const client = new Anthropic({ apiKey });
@@ -181,14 +188,14 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 		const upstreamStatus =
 			typeof (e as { status?: unknown })?.status === 'number' ? (e as { status: number }).status : undefined;
 		if (aborted) {
-			log(0, 'timeout', messages.length);
+			log(0, 'timeout', messages.length, grounding.count);
 			return fail(504, { error: 'timeout' });
 		}
 		if (upstreamStatus === 429) {
-			log(0, 'upstream_rate_limited', messages.length);
+			log(0, 'upstream_rate_limited', messages.length, grounding.count);
 			return fail(429, { error: 'upstream_busy' }, { 'Retry-After': '5' });
 		}
-		log(0, 'upstream_error', messages.length);
+		log(0, 'upstream_error', messages.length, grounding.count);
 		return fail(502, { error: 'chat_upstream_error' });
 	}
 
@@ -205,12 +212,12 @@ export const POST: RequestHandler = async ({ request, locals, getClientAddress }
 				const final = await messageStream.finalMessage();
 				tokens = (final.usage.input_tokens ?? 0) + (final.usage.output_tokens ?? 0);
 				ctrl.close();
-				log(tokens, final.stop_reason === 'refusal' ? 'refusal' : 'completed', messages.length);
+				log(tokens, final.stop_reason === 'refusal' ? 'refusal' : 'completed', messages.length, grounding.count);
 			} catch {
 				// Failure AFTER the first token: the 200 headers are already sent, so
 				// signal the client in-band with the sentinel (it strips + shows retry).
 				const aborted = controller.signal.aborted;
-				log(tokens, aborted ? 'timeout' : 'stream_error', messages.length);
+				log(tokens, aborted ? 'timeout' : 'stream_error', messages.length, grounding.count);
 				try {
 					ctrl.enqueue(encoder.encode(STREAM_ERROR_SENTINEL));
 				} catch {
