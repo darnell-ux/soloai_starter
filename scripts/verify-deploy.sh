@@ -49,10 +49,17 @@ echo "### Restarting app only (db + strapi untouched) ..."
 docker compose up -d --no-deps app
 
 echo "### Waiting for the app to respond ..."
-if "${curlq[@]}" --retry 30 --retry-delay 1 --retry-connrefused -o /dev/null "${base_url}/"; then
-  echo "    app is up"
+# Poll for a real 200 (nginx returns 502 while the app boots); up to ~60s.
+code=""
+for _ in $(seq 1 60); do
+  code="$("${curlq[@]}" -o /dev/null -w '%{http_code}' "${base_url}/" || echo 000)"
+  [ "$code" = "200" ] && break
+  sleep 1
+done
+if [ "$code" = "200" ]; then
+  echo "    app is up (200)"
 else
-  echo "    (app not responding yet — see logs below)"
+  echo "    (app not 200 after 60s, last=${code:-none} — see logs below)"
 fi
 
 echo
@@ -79,9 +86,21 @@ check "app home (want 200):"          GET  "/"
 check "chat empty body (want 400):"   POST "/api/chat"            '{"messages":[]}'
 check "assess (want 200):"            POST "/api/taxnexus/assess" '{"sales":0,"inventory":1,"entityType":"LLC"}'
 
-echo "### Recent [chat] logs (look for groundedDocs)"
-if ! docker compose logs --tail=60 app 2>/dev/null | grep '\[chat\]' | tail -10 | sed 's/^/    /'; then
-  echo "    (no [chat] logs yet — send a chat message to generate one)"
+if [ "${SKIP_CHAT_PROBE:-0}" = "1" ]; then
+  echo "### Grounding probe skipped (SKIP_CHAT_PROBE=1)"
+else
+  echo "### Grounding probe (sends ONE real chat message — a small Anthropic call)"
+  # Fire a real question so a 'completed' turn is logged with a groundedDocs count.
+  "${curlq[@]}" -N -o /dev/null -X POST "${base_url}/api/chat" \
+    -H 'content-type: application/json' \
+    -d '{"messages":[{"role":"user","content":"Do I owe California sales tax if Amazon stores my inventory in a CA warehouse?"}]}' || true
+  sleep 1
+  # The [chat] log is a multi-line object; -A8 grabs the fields after the marker.
+  echo "    latest [chat] fields:"
+  if ! docker compose logs --tail=80 app 2>/dev/null \
+      | grep -A8 '\[chat\]' | grep -E 'groundedDocs|tokens|kind' | tail -3 | sed 's/^/      /'; then
+    echo "      (no [chat] log captured — try a manual curl)"
+  fi
 fi
 
 echo
