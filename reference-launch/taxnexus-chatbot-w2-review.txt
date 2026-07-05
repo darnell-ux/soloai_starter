@@ -1,0 +1,256 @@
+================================================================================
+TAXNEXUS — WEEK 2 NUCAMP SUBMISSION REVIEW
+AI Chatbot Widget (Anthropic Claude Sonnet 4.6)
+================================================================================
+Repo:      darnell-ux/soloai_starter
+Branch:    main
+Date:      2026-07-04
+Reviewer:  Claude (code review against adapted Week 2 criteria)
+Note:      Implementation uses Anthropic Claude Sonnet 4.6 instead of OpenAI
+           gpt-4o. All OpenAI references in the original criteria were mapped
+           to their Anthropic SDK equivalents per the adapted prompt.
+
+Files reviewed (main @ HEAD):
+  src/routes/api/chat/+server.ts        (f14d72e)
+  src/lib/stores/chat.svelte.ts         (68f3c6f)
+  src/lib/components/Chatbot.svelte     (eb1f5c6)
+  src/routes/+layout.svelte             (4bcd03e)
+  src/lib/server/env.ts                 (172d340)
+
+================================================================================
+SECTION 1 — CHATBOT WIDGET (UI + BEHAVIOR)                    RESULT: PASS
+================================================================================
+[PASS] Lightweight embeddable component exists
+       src/lib/components/Chatbot.svelte — self-contained Svelte 5 runes
+       component, no external state beyond the chat store.
+
+[PASS] Launcher button opens/closes reliably
+       Fixed bottom-right circular launcher (data-testid="chat-launcher")
+       toggles `open` state; aria-expanded tracks state; Escape key closes
+       via svelte:window handler; dedicated close button in panel header.
+
+[PASS] Required UI regions all present
+       - Launcher button (floating, z-50)
+       - Header/title ("Nexus Compliance Assistant" + subtitle)
+       - Scrollable message pane (bind:this={scroller}, overflow-y-auto,
+         auto-scroll via scrollToEnd() after tick())
+       - Input area with send behavior (textarea + send button; Enter
+         sends, Shift+Enter newline)
+
+[PASS] UI states implemented — exceeds requirement
+       Five explicit states: idle / composing / streaming / error /
+       rate-limited. Streaming indicator: loading-dots in the assistant
+       placeholder bubble + spinner in send button. Error state renders a
+       DaisyUI alert with a Retry button (data-testid="chat-retry") plus
+       Snooze and Dismiss. Screen-reader live region (role="status",
+       aria-live="polite") announces state changes content-free.
+
+================================================================================
+SECTION 2 — INPUT HANDLING & SECURITY                         RESULT: PASS
+================================================================================
+[PASS] No {@html} for user or assistant content
+       Message content rendered as plain text interpolation
+       ({message.content}) with whitespace-pre-wrap. No HTML injection
+       surface.
+
+[PASS] Input trimmed, empty messages blocked client-side
+       send() early-returns on empty trim; send button disabled when
+       input.trim().length === 0 or while streaming.
+
+[PASS] Server-side Zod validation
+       +server.ts: messageSchema enforces role enum ('user' | 'assistant')
+       and content string 1–4,000 chars; bodySchema enforces messages
+       array 1–20 (defensive cap above the client's 10-message window).
+       safeParse → 400 invalid_body on failure. Additional guard: leading
+       assistant turns dropped (Anthropic requires first message = user);
+       all-assistant payloads rejected 400.
+
+[PASS] No XSS or injection risks identified
+       - Plain-text rendering throughout (no innerHTML, no {@html})
+       - Content-Type enforced via shared readJsonBody guard
+       - sessionStorage restore path type-checks every record
+         (isChatMessage guard) and caps at 50 — a tampered/corrupt payload
+         is filtered or ignored, never trusted
+       - Stream error sentinel is a single null byte: cannot split across
+         chunks, cannot appear in normal model output, stripped client-side
+
+================================================================================
+SECTION 3 — AI INTEGRATION (SERVER-SIDE PROXY)                RESULT: PASS
+================================================================================
+[PASS] Anthropic calls happen server-side only
+       src/routes/api/chat/+server.ts POST handler instantiates the
+       Anthropic SDK client and streams via client.messages.stream().
+       Model: claude-sonnet-4-6, max_tokens 2048, thinking disabled +
+       low effort for interactive latency. The browser only ever talks
+       to /api/chat.
+
+[PASS] ANTHROPIC_API_KEY never exposed to client
+       Key accessed exclusively via getEnv().ANTHROPIC_API_KEY inside
+       $lib/server/ (server-only module boundary). Never logged; never
+       echoed in error payloads. Missing key degrades gracefully:
+       503 chat_unavailable — chat goes down, the site does not.
+
+[PASS — documented deviation] Env validation for ANTHROPIC_API_KEY
+       Validation lives in src/lib/server/env.ts (not env-validation.ts as
+       the criterion names it) and uses the file's established hand-rolled
+       validation pattern rather than Zod — an explicitly documented,
+       intentional choice for internal consistency (see parseAnthropicKey
+       docblock). Validation is real and strict: empty → undefined,
+       format-checked for 'sk-ant-' prefix, fail-fast on malformed keys,
+       listed in SECRET_KEYS with production min-length assertion (>= 32).
+       Zod IS used where the criteria's security intent lives: runtime
+       request validation in the API route. Functional requirement met.
+
+================================================================================
+SECTION 4 — CONVERSATION STATE MANAGEMENT                     RESULT: PASS
+================================================================================
+[PASS — documented deviation] Chat store exists
+       Located at $lib/stores/chat.svelte.ts (not chat.ts) — the .svelte.ts
+       suffix is REQUIRED for Svelte 5 runes to compile, as documented in
+       the file header. Tracks reactive transcript ($state), message
+       error flags, and exposes add/append/markError/resetForRetry/clear.
+       UI flags (status, open, errorMsg) live in the component per Svelte 5
+       idiom.
+
+[PASS] Sliding window of last 10 messages sent to API
+       Client: chatStore.getRecent(10), filtered to exclude errored/empty
+       placeholders before POST. Server: defensive cap at 20.
+
+[PASS] sessionStorage respects session boundaries
+       - Tab-scoped persistence under 'taxnexus:chat', capped at 50 records
+       - Transcript is owner-tagged; syncUser() clears it whenever the
+         resolved Better Auth user differs from the stored owner —
+         including first resolution after reload (user B never inherits
+         user A's restored transcript) and any login/logout swap
+       - Component $effect re-syncs on every userId change from layout
+
+================================================================================
+SECTION 5 — RELIABILITY, RATE LIMITS, PRODUCTION SAFETY       RESULT: PASS
+================================================================================
+[PASS] AbortController 30s timeout
+       REQUEST_TIMEOUT_MS = 30_000; controller.abort() on timer; timer
+       cleared in every exit path (success, error, client cancel).
+       Pre-stream timeout → 504; mid-stream timeout → sentinel + logged
+       as 'timeout'.
+
+[PASS] Non-200 Anthropic responses handled
+       First-chunk pre-flight converts pre-output failures into real HTTP
+       statuses the client can act on: upstream 429 → 429 upstream_busy
+       (Retry-After: 5), other upstream errors → 502, timeout → 504,
+       unconfigured key → 503. Mid-stream failures (headers already sent)
+       use the in-band null-byte sentinel; client keeps partial text and
+       shows error + retry.
+
+[PASS] Clear error payload returned to client
+       Every error is structured JSON: { error: <code>, requestId } with
+       X-Request-Id header on both success and failure responses.
+
+[PASS] Rate limiting present; UI handles 429
+       Server: rateLimit() at 20 req/60s keyed per authenticated user
+       (chat:user:<id>) or per client IP for guests — proxy-aware,
+       preferring left-most X-Forwarded-For over the nginx socket address
+       so guests don't collapse into one shared bucket (DoS-resistant).
+       429 responses carry Retry-After. Client: dedicated 'rate-limited'
+       state with friendly copy ("Message limit reached. Please wait a
+       moment before retrying.") shared between visible alert and
+       screen-reader announcement.
+
+[PASS] Correlation IDs on every request
+       randomUUID() per request; attached to every log line, every error
+       body, and the X-Request-Id response header on success and failure.
+
+[PASS] Content-free logging
+       logChat() emits only requestId, userId, messageCount, latencyMs,
+       tokens, and outcome kind. Message content is never logged —
+       consistent with privacy policy §1/§5 (Anthropic as data processor).
+
+================================================================================
+SECTION 6 — APP EMBEDDING & THEMING                           RESULT: PASS
+================================================================================
+[PASS] Widget embedded in +layout.svelte
+       Rendered globally at layout root, outside <main>, so it persists
+       across all routes.
+
+[PASS] Lazy-loaded via onMount dynamic import
+       await import('$lib/components/Chatbot.svelte') inside onMount;
+       component only mounts after the Better Auth session resolves
+       (!$session.isPending) — zero cost to initial page load and no
+       auth-state flicker.
+
+[PASS] Inherits DaisyUI + CSS variables
+       Uses DaisyUI primitives throughout: btn, card, chat/chat-bubble,
+       alert, loading, input, link — theming flows from the app's DaisyUI
+       config.
+
+[PASS] TaxNexus brand palette applied
+       NAVY '#0D1B2A' and AMBER '#F0A500' constants drive the launcher,
+       header, user bubbles, send/retry buttons.
+
+[PASS] No global CSS conflicts
+       All styling via scoped utility classes and inline style props on
+       the component's own elements; fixed positioning with z-50; no
+       global stylesheet emissions.
+
+[PASS] Guest users see sign-in prompt; trial/paid get full chat
+       Guests: persistent sign-in banner ("Sign in for personalized
+       compliance guidance") linking to /login; chat still available
+       anonymously (deliberate lead-gen posture) with IP-based rate
+       limiting. Authenticated: tier badge shown, and the server enriches
+       the system prompt with the user's subscription tier (via
+       getUserBilling) while instructing the model never to expose
+       internal billing details.
+
+================================================================================
+MISSING REQUIREMENTS
+================================================================================
+None. All six sections pass. Two file-location deviations from the
+criteria's literal wording, both intentional and documented in-code:
+
+  1. Chat store is chat.svelte.ts, not chat.ts — required by Svelte 5
+     runes compilation. (Criterion 4)
+  2. Env validation is hand-rolled in env.ts, not Zod in
+     env-validation.ts — consistency with the file's established pattern;
+     Zod is used for API request validation where it matters for
+     security. (Criterion 3)
+
+Recommend stating both deviations in the submission notes so the grader
+doesn't flag false failures against the original OpenAI-phrased rubric.
+
+================================================================================
+TOP 3 IMPROVEMENT RECOMMENDATIONS
+================================================================================
+1. Clean up the lingering rate-limit bubble. On a 429, the empty
+   assistant placeholder is marked errored and stays in the transcript as
+   a blank error bubble after the alert is dismissed. It's correctly
+   excluded from future payloads, but visually it lingers. Consider
+   removing the placeholder entirely on 429 (rate-limit isn't a retryable
+   turn the way a stream failure is).
+
+2. Wire /api/chat to Strapi content grounding. The course's later weeks
+   (and the Gemini review hand-off) point at CMS-grounded answers. The
+   system prompt is currently static. A retrieval step pulling nexus
+   compliance docs from Strapi into the system context would ground
+   answers in TaxNexus's own content — and it's the natural bridge from
+   Week 2's widget to a production differentiator.
+
+3. Persist partial streams on tab close. appendContent() intentionally
+   skips per-token saves (good for perf), but a beforeunload/pagehide
+   save() would keep a long partial answer from vanishing if the tab
+   closes mid-stream. Low priority; cheap win.
+
+================================================================================
+VERDICT
+================================================================================
+WEEK 2 SUBMISSION: PASS — 6/6 sections.
+
+The implementation meets every functional requirement of the Week 2
+rubric and exceeds it in several places: five UI states instead of the
+required four, proxy-aware per-user/per-IP rate limiting, correlation
+IDs on all responses, content-free logging aligned with the published
+privacy policy, graceful degradation when the API key is absent, and an
+in-band stream-error protocol that preserves partial output. Verified
+live: taxnexusapp.com /api/chat returning 200 in production.
+
+================================================================================
+END OF REVIEW
+================================================================================
