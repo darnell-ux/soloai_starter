@@ -1,6 +1,18 @@
 /** Illustrative / educational constants — verify against official FTB guidance before reliance. */
 
 export const FTB_CONSTANTS = {
+	/**
+	 * FTB "doing business" factor-presence thresholds are indexed to the CCPI and
+	 * change every tax year. These three fields version the figures below so every
+	 * user-facing label can be DERIVED from the year (see FACTOR_THRESHOLD_STAMP)
+	 * and can never drift from the values. When you bump SALES_THRESHOLD /
+	 * PROPERTY_THRESHOLD, bump FACTOR_THRESHOLD_YEAR + FACTOR_THRESHOLD_VERIFIED_ON
+	 * in the same edit.
+	 */
+	FACTOR_THRESHOLD_YEAR: 2025,
+	FACTOR_THRESHOLD_VERIFIED_ON: '2026-06-21',
+	FACTOR_THRESHOLD_SOURCE_URL:
+		'https://www.ftb.ca.gov/file/business/doing-business-in-california.html',
 	SALES_THRESHOLD: 757070,
 	PROPERTY_THRESHOLD: 75707,
 	MIN_FRANCHISE_TAX: 800,
@@ -8,6 +20,14 @@ export const FTB_CONSTANTS = {
 	PENALTY_PER_MONTH: 0.05,
 	MAX_PENALTY: 0.25
 } as const;
+
+/**
+ * User-facing vintage stamp for the indexed factor thresholds, derived from
+ * FACTOR_THRESHOLD_YEAR. Interpolate this into every label that shows a factor
+ * figure so the year and the value move in lockstep — update the year in one
+ * place and all labels follow. Renders e.g. "2025 Indexed Threshold".
+ */
+export const FACTOR_THRESHOLD_STAMP = `${FTB_CONSTANTS.FACTOR_THRESHOLD_YEAR} Indexed Threshold`;
 
 export type FtbFormRow = {
 	id: string;

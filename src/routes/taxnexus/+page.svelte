@@ -5,8 +5,13 @@
 	import { formatCurrency } from '$lib/i18n/format';
 	import SeoHead from '$lib/components/SeoHead.svelte';
 	import Marks from '$lib/components/landing/Marks.svelte';
+	import type { PageData } from './$types';
 
 	export const prerender = false;
+
+	// Factor-presence figure + vintage stamp come from the server load, which reads
+	// them from ftb-constants.ts — so this page's label can never drift from the value.
+	let { data }: { data: PageData } = $props();
 
 	const ENTITY_CARD_KEYS = ['LLC', 'SCORP', 'CORP'] as const;
 
@@ -193,7 +198,7 @@
 							placeholder="$800,001"
 							required
 						/>
-						<span class="mt-1 block font-mono text-[11px] text-muted">FTB "doing business" sales threshold: $757,070 (2025 Indexed Threshold)</span>
+						<span class="mt-1 block font-mono text-[11px] text-muted">FTB "doing business" sales threshold: {`$${data.salesThreshold.toLocaleString('en-US')} (${data.factorStamp})`}</span>
 					</label>
 
 					<label class="block font-medium">
