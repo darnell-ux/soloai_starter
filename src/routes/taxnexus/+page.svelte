@@ -193,7 +193,7 @@
 							placeholder="$800,001"
 							required
 						/>
-						<span class="mt-1 block font-mono text-[11px] text-muted">Economic Nexus cap: $757,070</span>
+						<span class="mt-1 block font-mono text-[11px] text-muted">FTB "doing business" sales threshold: $757,070 (2025 Indexed Threshold)</span>
 					</label>
 
 					<label class="block font-medium">
