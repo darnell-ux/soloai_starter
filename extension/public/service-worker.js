@@ -52,9 +52,14 @@ async function assessNexus(signals) {
 }
 
 function riskFromAssessment(signals, assessment) {
+  // Local CA inventory detection alone is decisive: physical presence makes a
+  // seller "doing business" at any sales volume, so a detected CA fulfillment-
+  // center code means EXPOSED even when the assess API is unreachable. This must
+  // come BEFORE the null-assessment check so the blindside warning still fires
+  // during an API outage (otherwise a real CA signal degrades to "No data yet").
+  if (signals.hasCaInventory) return RISK.EXPOSED;
   if (!assessment) return RISK.UNKNOWN;
-  if (signals.hasCaInventory || assessment.hasNexus) return RISK.EXPOSED;
-  return RISK.CLEAR;
+  return assessment.hasNexus ? RISK.EXPOSED : RISK.CLEAR;
 }
 
 async function setBadge(risk) {
