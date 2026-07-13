@@ -8,9 +8,13 @@ export const FTB_CONSTANTS = {
 	 * and can never drift from the values. When you bump SALES_THRESHOLD /
 	 * PROPERTY_THRESHOLD, bump FACTOR_THRESHOLD_YEAR + FACTOR_THRESHOLD_VERIFIED_ON
 	 * in the same edit.
+	 *
+	 * Re-verified against the FTB "doing business" table on 2026-07-13: it still
+	 * tops out at tax year 2025 ($757,070 / $75,707 / $75,707). FTB has NOT yet
+	 * published 2026 — re-check and bump the year + figures when it posts.
 	 */
 	FACTOR_THRESHOLD_YEAR: 2025,
-	FACTOR_THRESHOLD_VERIFIED_ON: '2026-06-21',
+	FACTOR_THRESHOLD_VERIFIED_ON: '2026-07-13',
 	FACTOR_THRESHOLD_SOURCE_URL:
 		'https://www.ftb.ca.gov/file/business/doing-business-in-california.html',
 	SALES_THRESHOLD: 757070,
