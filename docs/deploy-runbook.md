@@ -281,3 +281,102 @@ does **not** exercise the real prod TLS path.
 
 Once the VM run is clean, the real deploy is just Phases 1–7 with real DNS and a
 real Let's Encrypt cert.
+
+## Appendix — Cloudflare cutover (CDN + geo + WAF)
+
+Puts Cloudflare's free tier in front of the origin: global edge caching, brotli,
+HTTP/3, DDoS/WAF, and the `cf-ipcountry` header that activates jurisdiction-aware
+consent. The origin code is already ready — `nginx.conf` trusts Cloudflare ranges
+via `set_real_ip_from` + `real_ip_header CF-Connecting-IP`, and the app reads
+`cf-ipcountry` in `src/lib/analytics/consent-region.ts`. This is the sequence to
+flip it on without breaking mail or TLS renewal.
+
+### Step 0 — deploy the origin prep first (must precede the DNS flip)
+The `real_ip` block ships in `nginx.conf`, but the app-only `verify-deploy.sh`
+does NOT rebuild nginx. Pull main and reload nginx so the origin is ready before
+any Cloudflare traffic arrives:
+
+```bash
+cd ~/soloai_starter && git pull origin main
+docker compose exec nginx nginx -t          # MUST pass before reloading
+docker compose exec nginx nginx -s reload
+```
+
+### Step 1 — add the site to Cloudflare (nameservers NOT changed yet)
+- Create the zone for `taxnexusapp.com`; let Cloudflare import existing DNS.
+- **Before doing anything else, audit the imported records against your current
+  registrar zone.** Cloudflare's import is best-effort and can miss records.
+
+### Step 2 — protect mail (the trap that silently breaks deliverability)
+Brevo SMTP + DKIM/SPF/DMARC are green and must stay green. Mail records must be
+**DNS-only (grey cloud), never proxied**:
+
+- `MX` records → DNS only.
+- `SPF` (`TXT … v=spf1 …`) → DNS only.
+- `DKIM` (`TXT`/`CNAME`, Brevo selector) → DNS only.
+- `DMARC` (`TXT _dmarc …`) → DNS only.
+- Any Brevo domain-verification record → DNS only.
+
+Proxying (orange cloud) only applies to **web** hostnames. Mail records are never
+proxied — proxying an MX is not even valid, but SPF/DKIM/DMARC TXT records must
+also stay plain DNS so resolvers read them unaltered.
+
+### Step 3 — set the web records to Proxied
+- `A`/`AAAA` `taxnexusapp.com` → **Proxied** (orange).
+- `CNAME`/`A` `www` → **Proxied**.
+- `A` `cms` (Strapi) → **Proxied** (or DNS-only if you'd rather keep the CMS off
+  the edge; proxied is fine and gives it WAF too).
+
+### Step 4 — SSL/TLS mode: Full (strict), NOT Flexible
+The origin has a valid Let's Encrypt cert, so use **Full (strict)** (SSL/TLS →
+Overview). Never **Flexible** — it terminates TLS at the edge and talks HTTP to
+the origin, causing redirect loops (nginx 301s :80→:443) and an insecure last hop.
+
+### Step 5 — keep Let's Encrypt renewal working (ACME http-01 gotcha)
+Certbot renews via an http-01 challenge on `:80` at
+`/.well-known/acme-challenge/`. With Cloudflare proxying and **"Always Use HTTPS"**
+on, that path can be redirected/cached and renewal fails. Pick one:
+
+- **(Recommended)** Leave the origin cert in place and add a Cloudflare
+  configuration rule: for `*/.well-known/acme-challenge/*`, disable "Always Use
+  HTTPS" / bypass cache. Renewal then reaches the origin on :80.
+- **or** switch certbot to a DNS-01 challenge (Cloudflare API token) — no :80
+  dependency at all.
+- **or** as a stopgap, grey-cloud the apex during a renewal window, then re-proxy.
+
+Verify with a dry run after cutover: `docker compose run --rm certbot renew --dry-run`.
+
+### Step 6 — flip the nameservers
+Change the registrar's nameservers to the two Cloudflare assigned. Propagation is
+usually minutes to a few hours.
+
+### Step 7 — verify (after propagation)
+```bash
+# served through Cloudflare (expect cf-cache-status / server: cloudflare)
+curl -sI https://taxnexusapp.com/ | grep -iE 'server:|cf-ray|cf-cache-status'
+
+# app still 200, security headers intact
+curl -sI https://taxnexusapp.com/ | grep -iE 'strict-transport|^HTTP'
+
+# real client IP + geo reaching the app: hit /api/taxnexus/assess and confirm the
+# server log shows a real X-Request-Id and NOT a Cloudflare edge IP in rate-limit keys
+docker compose logs --tail=30 app | grep -i assess | tail -3
+```
+- **Mail:** send a test through Brevo and confirm SPF/DKIM/DMARC still pass
+  (check headers in the received message, or Brevo's dashboard).
+- **Consent:** an EU/UK visitor should now get the opt-in banner even on the
+  English site (geo header, not language, drives it).
+- **TLS renewal:** run the certbot `--dry-run` from Step 5.
+
+### Step 8 — (recommended) firewall the origin to Cloudflare only
+Once traffic flows through Cloudflare, lock the origin so attackers can't bypass
+the edge by hitting the VPS IP directly (which would also sidestep the WAF and
+the real_ip trust boundary). Allow :443/:80 only from Cloudflare's published
+ranges (https://www.cloudflare.com/ips) via `ufw` or the Hostinger firewall.
+Keep SSH (:22) open to your admin IPs. Do this AFTER Step 7 confirms the proxy
+path works, so you don't lock yourself out mid-cutover.
+
+### Rollback
+Cutover is reversible: set the registrar nameservers back, or grey-cloud the web
+records. DNS reverts on propagation; the origin is unchanged (the `real_ip` block
+is a no-op without Cloudflare traffic).
