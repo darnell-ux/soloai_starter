@@ -12,6 +12,7 @@
 	import { META_TITLE_MAX, clampDescription, clampTitle } from '$lib/seo/validate';
 	import { hreflangForLocale, ogLocaleTag } from '$lib/seo/locale';
 	import { buildBreadcrumbJsonLd, serializeJsonLd } from '$lib/seo/jsonld';
+	import { publicLocales } from '$lib/i18n/locales';
 
 	type CmsSeo = {
 		title?: string;
@@ -84,7 +85,7 @@
 
 	const xDefaultHref = $derived(alternateHref(baseLocale));
 
-	const ogLocaleAlternates = $derived(locales.filter((l) => l !== currentLocale));
+	const ogLocaleAlternates = $derived(publicLocales.filter((l) => l !== currentLocale));
 
 	const breadcrumbScript = $derived.by(() => {
 		if (!breadcrumbs?.length) return '';
@@ -106,7 +107,7 @@
 	<meta name="robots" content={robotsContent} />
 	<link rel="canonical" href={canonicalHref} />
 
-	{#each locales as locale (locale)}
+	{#each publicLocales as locale (locale)}
 		<link rel="alternate" hreflang={hreflangForLocale(locale)} href={alternateHref(locale)} />
 	{/each}
 	<link rel="alternate" hreflang="x-default" href={xDefaultHref} />

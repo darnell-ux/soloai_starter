@@ -1,4 +1,5 @@
-import { baseLocale, generateStaticLocalizedUrls, locales } from '$lib/paraglide/runtime';
+import { localizeHref } from '$lib/paraglide/runtime';
+import { publicLocales } from '$lib/i18n/locales';
 import type { RequestHandler } from '@sveltejs/kit';
 
 const INDEXABLE_PATHS = ['/', '/features', '/pricing', '/contact', '/privacy', '/terms'];
@@ -11,30 +12,21 @@ function escapeXml(s: string): string {
 		.replace(/"/g, '&quot;');
 }
 
-function isHomePath(pathname: string): boolean {
-	const p = pathname.replace(/\/$/, '') || '/';
-	if (p === '/') return true;
-	return locales.some((l) => l !== baseLocale && p === `/${l}`);
-}
-
 export const GET: RequestHandler = ({ url }) => {
 	const origin = url.origin;
 	const rows: string[] = [];
 
+	// Only advertise translated (public) locales — see $lib/i18n/locales.ts. This
+	// avoids emitting hreflang/URLs for locales whose pages are English fallbacks.
 	for (const path of INDEXABLE_PATHS) {
-		const localized = generateStaticLocalizedUrls([path]);
-
-		for (const u of localized) {
-			const loc = new URL(u.pathname, origin).href;
-			const priority = isHomePath(u.pathname) ? '1.0' : '0.8';
+		for (const locale of publicLocales) {
+			const loc = new URL(String(localizeHref(path, { locale })), origin).href;
+			const priority = path === '/' ? '1.0' : '0.8';
 			let inner = `<loc>${escapeXml(loc)}</loc>`;
-			if (localized.length === locales.length) {
-				for (let j = 0; j < locales.length; j++) {
-					const locCode = locales[j];
-					const locUrl = localized[j];
-					if (locCode === undefined || locUrl === undefined) continue;
-					const alt = new URL(locUrl.pathname, origin).href;
-					inner += `<xhtml:link rel="alternate" hreflang="${escapeXml(locCode)}" href="${escapeXml(alt)}" />`;
+			if (publicLocales.length > 1) {
+				for (const alt of publicLocales) {
+					const altHref = new URL(String(localizeHref(path, { locale: alt })), origin).href;
+					inner += `<xhtml:link rel="alternate" hreflang="${escapeXml(alt)}" href="${escapeXml(altHref)}" />`;
 				}
 			}
 			inner += `<changefreq>weekly</changefreq><priority>${priority}</priority>`;
