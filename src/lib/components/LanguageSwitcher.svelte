@@ -2,7 +2,8 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { assertIsLocale, getLocale, locales, localizeHref, setLocale } from '$lib/paraglide/runtime';
+	import { assertIsLocale, getLocale, localizeHref, setLocale } from '$lib/paraglide/runtime';
+	import { publicLocales } from '$lib/i18n/locales';
 
 	const currentLocale = $derived.by(() => {
 		page.url.pathname;
@@ -27,7 +28,7 @@
 		onchange={onLocaleChange}
 		aria-describedby="language-select-hint"
 	>
-		{#each locales as locale (locale)}
+		{#each publicLocales as locale (locale)}
 			<option value={locale}>{locale}</option>
 		{/each}
 	</select>

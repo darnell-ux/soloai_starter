@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { locales } from '$lib/paraglide/runtime';
+	import { publicLocales } from '$lib/i18n/locales';
 	import { buildOrganizationJsonLd, buildWebsiteJsonLd, serializeJsonLd } from '$lib/seo/jsonld';
 
 	const orgJson = $derived(serializeJsonLd(buildOrganizationJsonLd(page.url.origin)));
-	const webJson = $derived(serializeJsonLd(buildWebsiteJsonLd(page.url.origin, locales)));
+	const webJson = $derived(serializeJsonLd(buildWebsiteJsonLd(page.url.origin, publicLocales)));
 </script>
 
 <svelte:head>
