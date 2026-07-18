@@ -1,4 +1,4 @@
-import { FORM_DATABASE, FTB_CONSTANTS, type FtbEntityType } from './ftb-constants';
+import { FORM_DATABASE, FTB_CONSTANTS, FACTOR_THRESHOLD_STAMP, type FtbEntityType } from './ftb-constants';
 
 export type NexusAssessInput = {
 	sales: number;
@@ -53,13 +53,13 @@ export function assessNexus(input: NexusAssessInput): NexusAssessResult {
 
 	if (input.sales >= FTB_CONSTANTS.SALES_THRESHOLD) {
 		triggers.push(
-			`Sales exceed $${FTB_CONSTANTS.SALES_THRESHOLD.toLocaleString('en-US')} (Economic Nexus)`
+			`Sales exceed the FTB "doing business" sales threshold of $${FTB_CONSTANTS.SALES_THRESHOLD.toLocaleString('en-US')} (${FACTOR_THRESHOLD_STAMP})`
 		);
 	}
 
 	if (input.inventory >= FTB_CONSTANTS.PROPERTY_THRESHOLD) {
 		triggers.push(
-			`Property/inventory factor exceeds $${FTB_CONSTANTS.PROPERTY_THRESHOLD.toLocaleString('en-US')} threshold (illustrative factor presence)`
+			`Property/inventory exceeds the FTB factor-presence threshold of $${FTB_CONSTANTS.PROPERTY_THRESHOLD.toLocaleString('en-US')} (${FACTOR_THRESHOLD_STAMP}, illustrative)`
 		);
 	} else if (input.inventory > 0) {
 		triggers.push('Physical inventory in CA (Amazon FBA/3PL Nexus)');
