@@ -1,5 +1,6 @@
 import { baseLocale, extractLocaleFromRequest, localizeHref } from '$lib/paraglide/runtime';
 import { isValidGtmContainerId } from '$lib/analytics/dataLayer';
+import { resolveConsentAutoGrant } from '$lib/analytics/consent-region';
 import { hashUserIdForAnalytics } from '$lib/analytics/user-hash.server';
 import { getUserBilling } from '$lib/server/stripe/billing-store';
 import type { LayoutServerLoad } from './$types';
@@ -7,7 +8,11 @@ import type { LayoutServerLoad } from './$types';
 export const load: LayoutServerLoad = async ({ locals, request, url }) => {
 	const signedIn = Boolean(locals.user);
 	const locale = extractLocaleFromRequest(request);
-	const isUsLocale = locale === baseLocale;
+	// Legacy field name `isUsLocale` — it now means "consent may be auto-granted"
+	// (visitor is NOT in an opt-in jurisdiction). Derived from a geo signal when
+	// present, falling back to the base-locale heuristic when no CDN/geo header is
+	// available. See $lib/analytics/consent-region.ts.
+	const isUsLocale = resolveConsentAutoGrant(request, locale, baseLocale);
 	const rawGtm = (process.env.PUBLIC_GTM_CONTAINER_ID ?? '').trim();
 	const gtmContainerId = isValidGtmContainerId(rawGtm) ? rawGtm : '';
 
