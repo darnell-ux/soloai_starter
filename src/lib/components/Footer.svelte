@@ -15,7 +15,11 @@
 <footer class="border-t border-base-300 bg-base-200/40">
 	<div class="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10">
 		<nav aria-label={m.footer_nav_label()} class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-			<a class="link link-hover" href={resolve(localizeHref('/') as any) + '#pricing'}>
+			<a
+				class="link link-hover"
+				href={resolve(localizeHref('/pricing') as any)}
+				data-sveltekit-preload-data="hover"
+			>
 				{m.footer_link_pricing()}
 			</a>
 			<a
@@ -38,6 +42,13 @@
 				data-sveltekit-preload-data="hover"
 			>
 				{m.footer_link_terms()}
+			</a>
+			<a
+				class="link link-hover"
+				href={resolve(localizeHref('/refunds') as any)}
+				data-sveltekit-preload-data="hover"
+			>
+				{m.footer_link_refunds()}
 			</a>
 			{#if showCookieSettings}
 				<button type="button" class="link link-hover cursor-pointer bg-transparent text-left" onclick={openCookieSettings}>

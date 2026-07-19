@@ -5,26 +5,26 @@
 
 	// NOTE (for the operator): this is a technical draft written to match what the
 	// application actually does today (analytics, consent, processors). It is not
-	// legal advice — have counsel review, and confirm the entity name, contact
-	// address, and governing jurisdiction before launch. Legal text is intentionally
+	// legal advice — have counsel review before launch. Legal text is intentionally
 	// in English; professional translation is a separate step from UI localization.
-	const lastUpdated = 'July 4, 2026';
+	const effectiveDate = 'July 18, 2026';
 	const contactEmail = 'privacy@taxnexusapp.com';
 </script>
 
 <SeoHead
 	pageTitle="Privacy Policy"
-	description="How TaxNexus collects, uses, and protects personal data — analytics, cookies, consent, and your rights."
+	description="How TaxNexus collects, uses, and protects personal data — analytics, cookies, consent, AI processing, and your rights."
 />
 
 <article class="prose prose-sm mx-auto max-w-3xl px-4 py-10">
 	<h1>Privacy Policy</h1>
-	<p><em>Last updated: {lastUpdated}</em></p>
+	<p><em>Effective date: {effectiveDate}</em></p>
 
 	<p>
-		TaxNexus (“we”, “us”) helps Amazon FBA sellers understand potential California sales-tax nexus
-		exposure. This policy explains what we collect, why, who we share it with, and the choices you
-		have. It reflects how the product actually behaves.
+		TaxNexus is operated by <strong>Consult Solutions</strong> (Oakland, California) (“we”, “us”). We
+		help Amazon FBA sellers understand potential California sales-tax nexus exposure. This policy
+		explains what we collect, why, who we share it with, and the choices you have. It reflects how the
+		product actually behaves.
 	</p>
 
 	<h2>1. Information we collect</h2>
@@ -63,6 +63,10 @@
 		<li>Understand and improve usage (analytics), subject to your consent.</li>
 		<li>Send service and, where you’ve opted in, product communications (via our email platform).</li>
 	</ul>
+	<p>
+		We do <strong>not</strong> sell your personal information, and we do not share your sales data with
+		third parties for their own marketing purposes.
+	</p>
 
 	<h2>3. Cookies &amp; consent</h2>
 	<p>
@@ -96,22 +100,26 @@
 		<li>
 			<strong>Anthropic</strong> — AI/language-model processing for the compliance assistant. Chat
 			messages are processed to generate responses but are not retained beyond the session, per
-			Anthropic’s API data-handling policy. See
+			Anthropic’s API data-handling policy. <strong>We do not use your sales data to train AI
+			models.</strong> See
 			<a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">Anthropic’s Privacy Policy</a>.
 		</li>
 	</ul>
 
 	<h2>6. Data retention</h2>
 	<p>
-		Account data is kept while your account is active and for a reasonable period afterward as needed
-		for legal, accounting, or security purposes. Nexus assessment inputs are not retained. Analytics
-		data is retained per each provider’s configured retention period.
+		Account data is kept while your account is active. If you close your account, we delete or
+		anonymize your personal information within <strong>90 days</strong>, except where we must retain
+		certain records for legal, tax, accounting, or security purposes (such as billing records). Nexus
+		assessment inputs are not retained. Analytics data is retained per each provider’s configured
+		retention period. You may request deletion at any time (see §8).
 	</p>
 
 	<h2>7. International transfers</h2>
 	<p>
 		The service is operated from, and data is processed in, the United States. If you access it from
-		another region, you consent to processing in the United States.
+		another region, you consent to processing in the United States, where data-protection laws may
+		differ from those in your jurisdiction.
 	</p>
 
 	<h2>8. Your rights &amp; choices</h2>
@@ -122,8 +130,23 @@
 			data, and to opt out of “sale”/“sharing” for cross-context advertising (we do not sell personal
 			data).
 		</li>
-		<li>To exercise any right, contact us at <a href={'mailto:' + contactEmail}>{contactEmail}</a>.</li>
 	</ul>
+	<p>
+		<strong>California residents (CCPA/CPRA).</strong> You have the rights to know, delete, correct, and
+		opt out of the sale or sharing of personal information. We do not sell or share personal information
+		as those terms are defined by the CCPA/CPRA, and we will not discriminate against you for exercising
+		your rights.
+	</p>
+	<p>
+		<strong>EEA/UK residents (GDPR/UK GDPR).</strong> We process your data on the legal bases of
+		contract performance (providing the service), legitimate interests (security and product
+		improvement), and consent (analytics and marketing). You may lodge a complaint with your local
+		supervisory authority.
+	</p>
+	<p>
+		To exercise any right, contact us at <a href={'mailto:' + contactEmail}>{contactEmail}</a>. We will
+		respond within the timeframe required by applicable law.
+	</p>
 
 	<h2>9. Security</h2>
 	<p>
@@ -132,14 +155,15 @@
 	</p>
 
 	<h2>10. Children</h2>
-	<p>The service is intended for businesses and is not directed to children under 16.</p>
+	<p>The service is intended for business use by adults and is not directed to anyone under 18.</p>
 
 	<h2>11. Changes to this policy</h2>
 	<p>
-		We may update this policy; material changes will be reflected by the “Last updated” date above and,
+		We may update this policy; material changes will be reflected by the “Effective date” above and,
 		where appropriate, additional notice.
 	</p>
 
 	<h2>12. Contact</h2>
 	<p>Questions or requests: <a href={'mailto:' + contactEmail}>{contactEmail}</a>.</p>
+	<p>Consult Solutions — Oakland, California.</p>
 </article>
