@@ -104,19 +104,24 @@ function scoreDoc(queryTokens: Set<string>, doc: GroundingDoc): number {
 
 // --- Strapi fetch + cache -----------------------------------------------------
 
+type FaqFields = { question?: unknown; answer?: unknown };
 type FaqApiEntry = {
 	documentId?: unknown;
 	id?: unknown;
-	attributes?: { question?: unknown; answer?: unknown };
+	/** Present only on the legacy Strapi v4 REST shape. */
+	attributes?: FaqFields;
 };
 
 function parseDoc(entry: unknown): GroundingDoc | null {
 	if (!entry || typeof entry !== 'object') return null;
-	const e = entry as FaqApiEntry;
-	const attr = e.attributes;
-	if (!attr || typeof attr !== 'object') return null;
-	const question = String(attr.question ?? '').trim();
-	const answer = htmlToText(String(attr.answer ?? ''));
+	const e = entry as FaqApiEntry & FaqFields;
+	// Strapi v5 flattened the REST response — `question`/`answer` are top-level on
+	// the entry. Strapi v4 nested them under `attributes`. Read whichever is present
+	// so the parser works on both (v5 in prod today, v4 on older instances).
+	const fields: FaqFields =
+		e.attributes && typeof e.attributes === 'object' ? e.attributes : e;
+	const question = String(fields.question ?? '').trim();
+	const answer = htmlToText(String(fields.answer ?? ''));
 	if (!question || !answer) return null;
 	return {
 		id: String(e.documentId ?? e.id ?? question.slice(0, 24)),
