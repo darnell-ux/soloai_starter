@@ -103,13 +103,8 @@
 <main class="mx-auto max-w-5xl px-4 py-10">
 	<h1 class="text-3xl font-bold tracking-tight">Pricing</h1>
 	<p class="mt-2 max-w-2xl text-base-content/80">
-		Simple monthly plans for ongoing California nexus monitoring.
-		{#if data.checkoutProcessor === 'stripe'}
-			Checkout for your region is handled securely by <strong>Stripe</strong>.
-		{:else}
-			Checkout for your region is handled by <strong>Lemon Squeezy</strong>, our global merchant of
-			record; you’ll complete your purchase on their hosted page.
-		{/if}
+		Simple monthly plans for ongoing California nexus monitoring. Checkout is handled securely by
+		<strong>Stripe</strong>, or by <strong>Lemon Squeezy</strong> for international customers.
 	</p>
 
 	{#snippet priceLine(plan: (typeof data.plans)[number])}
