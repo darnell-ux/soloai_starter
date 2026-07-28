@@ -12,8 +12,20 @@ vi.mock('./client', () => ({
 }));
 
 import { tokenize, htmlToText, getGroundingContext, clearGroundingCache } from './grounding';
+import { strapiGetJson } from './client';
 
-beforeEach(() => clearGroundingCache());
+beforeEach(() => {
+	clearGroundingCache();
+	vi.mocked(strapiGetJson).mockReset();
+	vi.mocked(strapiGetJson).mockResolvedValue(null);
+});
+
+// A realistic CA-nexus FAQ, keyed by shape. The query below scores well above
+// MIN_SCORE against either.
+const CA_Q = 'Does storing inventory in a California Amazon warehouse create sales tax nexus?';
+const CA_A =
+	'Yes. Storing inventory in California — including an Amazon FBA fulfillment center — creates physical-presence sales tax nexus, even at low sales volume.';
+const CA_QUERY = 'Do I owe California sales tax on Amazon warehouse inventory?';
 
 describe('tokenize', () => {
 	it('lowercases and drops stopwords', () => {
@@ -71,5 +83,29 @@ describe('getGroundingContext', () => {
 		expect(r.block).toBe('');
 		expect(r.count).toBe(0);
 		expect(r.corpusSize).toBe(0);
+	});
+
+	// Regression: Strapi v5 flattened the REST shape (question/answer top-level).
+	// parseDoc must read it, or the corpus is silently empty (groundedDocs: 0).
+	it('grounds on a Strapi v5 flat-shape corpus (question/answer top-level)', async () => {
+		vi.mocked(strapiGetJson).mockResolvedValue({
+			data: [{ id: 1, documentId: 'abc123', question: CA_Q, answer: CA_A }]
+		});
+		const r = await getGroundingContext([{ role: 'user', content: CA_QUERY }]);
+		expect(r.corpusSize).toBe(1);
+		expect(r.count).toBeGreaterThanOrEqual(1);
+		expect(r.block).toContain('knowledge');
+		expect(r.block).toContain('California');
+	});
+
+	// Back-compat: the legacy Strapi v4 nested shape must still parse.
+	it('still grounds on a Strapi v4 nested-shape corpus (attributes)', async () => {
+		vi.mocked(strapiGetJson).mockResolvedValue({
+			data: [{ id: 1, documentId: 'abc123', attributes: { question: CA_Q, answer: CA_A } }]
+		});
+		const r = await getGroundingContext([{ role: 'user', content: CA_QUERY }]);
+		expect(r.corpusSize).toBe(1);
+		expect(r.count).toBeGreaterThanOrEqual(1);
+		expect(r.block).toContain('knowledge');
 	});
 });
