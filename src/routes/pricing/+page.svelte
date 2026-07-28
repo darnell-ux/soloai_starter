@@ -96,20 +96,15 @@
 </script>
 
 <SeoHead
-	pageTitle="Pricing | SaaS"
-	description="Compare plans and subscribe with Stripe (US) or Lemon Squeezy (global) depending on locale."
+	pageTitle="Pricing"
+	description="TaxNexus pricing — Guard $39/mo and Aggregator $119/mo. California nexus monitoring for Amazon FBA sellers. Start free."
 />
 
 <main class="mx-auto max-w-5xl px-4 py-10">
 	<h1 class="text-3xl font-bold tracking-tight">Pricing</h1>
 	<p class="mt-2 max-w-2xl text-base-content/80">
-		{#if data.checkoutProcessor === 'stripe'}
-			Subscriptions for your locale use <strong>Stripe</strong> Checkout. Manage billing from your account after
-			purchase.
-		{:else}
-			Subscriptions for your locale use <strong>Lemon Squeezy</strong> (global). You will complete checkout on
-			Lemon Squeezy’s hosted page.
-		{/if}
+		Simple monthly plans for ongoing California nexus monitoring. Checkout is handled securely by
+		<strong>Stripe</strong>, or by <strong>Lemon Squeezy</strong> for international customers.
 	</p>
 
 	{#snippet priceLine(plan: (typeof data.plans)[number])}
@@ -128,98 +123,47 @@
 		{/if}
 	{/snippet}
 
-	{#if data.checkoutProcessor === 'stripe'}
-		{#if !data.stripeCheckoutEnabled}
-			<p class="mt-8 rounded-box bg-base-200 px-4 py-3 text-sm text-base-content/80">
-				Stripe billing is not configured. Set the Stripe variables in <code class="text-xs">.env.example</code>.
-			</p>
-		{:else if !data.hasStripePlan}
-			<p class="mt-8 rounded-box bg-base-200 px-4 py-3 text-sm text-base-content/80">
-				Add <code class="text-xs">STRIPE_PRICE_BASIC</code> and/or
-					<code class="text-xs">STRIPE_PRICE_PRO</code> for live Stripe tiers.
-			</p>
-		{:else}
-			<ul class="mt-10 grid max-w-3xl gap-6 sm:grid-cols-2">
-				{#each data.plans as plan (plan.tier)}
-					{#if plan.priceId}
-						<li class="card bg-base-100 shadow-sm">
-							<div class="card-body">
-								<h2 class="card-title">
-									{plan.title}
-									{#if isCurrentPlan(plan)}
-										<span class="badge badge-success badge-sm">Current</span>
-									{/if}
-								</h2>
-								{@render priceLine(plan)}
-								<p class="text-sm text-base-content/80">{plan.description}</p>
-								<div class="card-actions mt-4">
-									{#if data.isLoggedIn}
-										<button
-											type="button"
-											class="btn btn-primary btn-block"
-											disabled={checkoutLoading !== null || isCurrentPlan(plan)}
-											onclick={() => startCheckout(plan)}
-										>
-											{checkoutLoading === plan.tier ? 'Redirecting…' : isCurrentPlan(plan) ? 'Current plan' : 'Subscribe'}
-										</button>
-									{:else}
-										<button type="button" class="btn btn-primary btn-block" onclick={() => goToLoginForCheckout()}>
-											Sign in to subscribe
-										</button>
-									{/if}
-								</div>
-							</div>
-						</li>
-					{/if}
-				{/each}
-			</ul>
-		{/if}
-	{:else if !data.lemonCheckoutEnabled}
-		<p class="mt-8 rounded-box bg-base-200 px-4 py-3 text-sm text-base-content/80">
-			Lemon Squeezy is not configured. Set <code class="text-xs">LEMON_SQUEEZY_*</code> variables in
-			<code class="text-xs">.env.example</code>.
-		</p>
-	{:else if !data.hasLemonPlan}
-		<p class="mt-8 rounded-box bg-base-200 px-4 py-3 text-sm text-base-content/80">
-			Add <code class="text-xs">LEMON_VARIANT_BASIC</code> and/or
-			<code class="text-xs">LEMON_VARIANT_PRO</code> for Lemon Squeezy tiers.
-		</p>
-	{:else}
-		<ul class="mt-10 grid gap-6 md:grid-cols-3">
-			{#each data.plans as plan (plan.tier)}
-				{#if plan.lemonVariantId}
-					<li class="card bg-base-100 shadow-sm">
-						<div class="card-body">
-							<h2 class="card-title">
-								{plan.title}
-								{#if isCurrentPlan(plan)}
-									<span class="badge badge-success badge-sm">Current</span>
-								{/if}
-							</h2>
-							{@render priceLine(plan)}
-								<p class="text-sm text-base-content/80">{plan.description}</p>
-							<div class="card-actions mt-4">
-								{#if data.isLoggedIn}
-									<button
-										type="button"
-										class="btn btn-primary btn-block"
-										disabled={checkoutLoading !== null || isCurrentPlan(plan)}
-										onclick={() => startCheckout(plan)}
-									>
-										{checkoutLoading === plan.tier ? 'Redirecting…' : isCurrentPlan(plan) ? 'Current plan' : 'Subscribe'}
-									</button>
-								{:else}
-									<button type="button" class="btn btn-primary btn-block" onclick={() => goToLoginForCheckout()}>
-										Sign in to subscribe
-									</button>
-								{/if}
-							</div>
-						</div>
-					</li>
-				{/if}
-			{/each}
-		</ul>
-	{/if}
+	<!-- Tiers are always listed publicly (pricing transparency); only the checkout
+	     action depends on the processor being configured for the visitor's locale. -->
+	<ul class="mt-10 grid max-w-3xl gap-6 sm:grid-cols-2">
+		{#each data.plans as plan (plan.tier)}
+			<li class="card bg-base-100 shadow-sm">
+				<div class="card-body">
+					<h2 class="card-title">
+						{plan.title}
+						{#if isCurrentPlan(plan)}
+							<span class="badge badge-success badge-sm">Current</span>
+						{/if}
+					</h2>
+					{@render priceLine(plan)}
+					<p class="text-sm text-base-content/80">{plan.description}</p>
+					<div class="card-actions mt-4">
+						{#if data.isLoggedIn}
+							<button
+								type="button"
+								class="btn btn-primary btn-block"
+								disabled={checkoutLoading !== null || isCurrentPlan(plan)}
+								onclick={() => startCheckout(plan)}
+							>
+								{checkoutLoading === plan.tier ? 'Redirecting…' : isCurrentPlan(plan) ? 'Current plan' : 'Subscribe'}
+							</button>
+						{:else}
+							<button type="button" class="btn btn-primary btn-block" onclick={() => goToLoginForCheckout()}>
+								Sign in to subscribe
+							</button>
+						{/if}
+					</div>
+				</div>
+			</li>
+		{/each}
+	</ul>
+
+	<p class="mt-6 max-w-3xl text-xs text-base-content/60">
+		Prices in USD; international customers are billed in local currency via Lemon Squeezy at checkout.
+		Every plan starts with a 14-day free trial — no card required. See our
+		<a class="link" href={resolve(localizeHref('/refunds') as any)}>Refund Policy</a> and
+		<a class="link" href={resolve(localizeHref('/terms') as any)}>Terms</a>.
+	</p>
 
 	{#if checkoutError}
 		<p class="mt-6 text-error text-sm" role="alert">{checkoutError}</p>
