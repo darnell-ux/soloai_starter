@@ -165,5 +165,5 @@
 
 	<h2>12. Contact</h2>
 	<p>Questions or requests: <a href={'mailto:' + contactEmail}>{contactEmail}</a>.</p>
-	<p>Consult Solutions — Oakland, California.</p>
+	<p>Consult Solutions, 410 Fairmount Ave, Ste 106, Oakland, California 94611.</p>
 </article>
