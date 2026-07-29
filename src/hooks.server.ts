@@ -1,5 +1,6 @@
 import '$lib/server/env.bootstrap';
 import { auth } from '$lib/auth';
+import { ensureAuthSchema } from '$lib/server/auth-migrate';
 import type { Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { building } from '$app/environment';
@@ -7,6 +8,10 @@ import { getTextDirection } from '$lib/paraglide/runtime';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { getEnv } from '$lib/server/env';
+
+// Kick off schema self-heal at server startup (no-op during build). handleAuth
+// also awaits it so no auth request can run before the schema exists.
+void ensureAuthSchema();
 
 const handleParaglide: Handle = ({ event, resolve }) =>
 	paraglideMiddleware(event.request, ({ request, locale }) => {
@@ -21,6 +26,9 @@ const handleParaglide: Handle = ({ event, resolve }) =>
 	});
 
 const handleAuth: Handle = async ({ event, resolve }) => {
+	// Guarantee the auth schema exists before any auth query (self-healing after a
+	// wiped/empty DB). Idempotent + memoized, so this is a resolved no-op after boot.
+	await ensureAuthSchema();
 	const session = await auth.api.getSession({ headers: event.request.headers });
 	if (session) {
 		event.locals.session = session.session;

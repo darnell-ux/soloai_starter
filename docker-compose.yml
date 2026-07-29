@@ -195,8 +195,15 @@ volumes:
       device: ${BASE_PATH}/strapi
       o: bind
   # SvelteKit app persistent state (Better Auth SQLite + JSON billing store).
+  # Bind-mounted to a host path (like mysql-data/strapi) so accounts survive
+  # container rebuilds AND are not lost to `docker compose down -v` / volume prune.
+  # NOTE: the host dir must exist before `up` — `mkdir -p ${BASE_PATH}/app-data`.
   app-data:
     driver: local
+    driver_opts:
+      type: none
+      device: ${BASE_PATH}/app-data
+      o: bind
   # Let's Encrypt certs + ACME webroot, shared between nginx and certbot.
   certbot-etc:
     driver: local
