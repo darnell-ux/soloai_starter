@@ -60,44 +60,39 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
-    environment: production
+    # Self-hosted runner ON the VPS: the deploy runs locally, so no inbound SSH is
+    # needed and the provider firewall stays locked down (only 80/443 are public).
+    # The runner connects OUT to GitHub. Registered with the 'taxnexus-vps' label.
+    runs-on: [self-hosted, taxnexus-vps]
     steps:
-      - name: Deploy the tagged release over SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            set -euo pipefail
-            cd "${{ secrets.VPS_APP_DIR }}"
-            echo "### Deploying tag ${{ github.ref_name }} ..."
-            git fetch --all --tags --prune
-            # Reset the working tree to the exact tagged commit.
-            git checkout -f "${{ github.ref_name }}"
-            git reset --hard "${{ github.ref_name }}"
-            # Reuse the repo's idempotent deploy (build app+strapi, up -d, prune).
-            DEPLOY_BRANCH="${{ github.ref_name }}" ./scripts/deploy.sh
+      - name: Deploy the tagged release on the VPS
+        env:
+          APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cd "$APP_DIR"
+          echo "### Deploying tag $TAG on $(hostname) ..."
+          git fetch --all --tags --prune
+          # Reset the working tree to the exact tagged commit.
+          git checkout -f "$TAG"
+          git reset --hard "$TAG"
+          # Reuse the repo's idempotent deploy (build app+strapi, up -d, prune).
+          DEPLOY_BRANCH="$TAG" ./scripts/deploy.sh
 
       - name: Verify /health returns 200
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            set -euo pipefail
-            echo "### Waiting for the app to become healthy ..."
-            for i in $(seq 1 30); do
-              code=$(curl -s -o /dev/null -w '%{http_code}' https://taxnexusapp.com/health || true)
-              if [ "$code" = "200" ]; then
-                echo "OK: /health returned 200 (attempt $i)"
-                curl -s https://taxnexusapp.com/health
-                exit 0
-              fi
-              echo "attempt $i: /health -> $code; retrying ..."
-              sleep 4
-            done
-            echo "ERROR: /health never returned 200" >&2
-            exit 1
+        run: |
+          set -euo pipefail
+          echo "### Waiting for the app to become healthy ..."
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://taxnexusapp.com/health || true)
+            if [ "$code" = "200" ]; then
+              echo "OK: /health returned 200 (attempt $i)"
+              curl -s https://taxnexusapp.com/health; echo
+              exit 0
+            fi
+            echo "attempt $i: /health -> $code; retrying ..."
+            sleep 4
+          done
+          echo "ERROR: /health never returned 200" >&2
+          exit 1
