@@ -1,0 +1,103 @@
+name: release
+
+# Tagged production release. Fires on annotated semantic-version tags (v*.*.*):
+#   git tag -a v1.2.3 -m "..."   &&   git push origin v1.2.3
+#
+# Two jobs:
+#   build  — compiles the SvelteKit app on the GitHub runner and uploads the
+#            adapter-node output as a workflow artifact. Needs no secrets, so it
+#            proves the release is buildable even before the VPS secrets exist.
+#   deploy — SSHes into the Hostinger KVM2, resets to the tagged commit, rebuilds
+#            the Docker image and recreates the app container, then verifies
+#            /health returns 200. Requires the VPS_* repo secrets.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the tagged commit
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (lockfile-exact)
+        run: npm ci
+
+      - name: Build the SvelteKit app
+        # These ARGs/vars only satisfy the build-time env validator; no secrets are
+        # baked. Real runtime values come from the VPS .env at container start.
+        env:
+          NODE_ENV: production
+          PUBLIC_STRAPI_URL: https://cms.taxnexusapp.com
+          STRAPI_API_URL: https://cms.taxnexusapp.com
+          BETTER_AUTH_URL: https://taxnexusapp.com
+          BETTER_AUTH_SECRET: build_time_placeholder_secret_min_32_characters
+          DATABASE_URL: mysql://placeholder:placeholder@db:3306/soloai_db
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxnexus-build-${{ github.ref_name }}
+          path: build/
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy the tagged release over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.VPS_APP_DIR }}"
+            echo "### Deploying tag ${{ github.ref_name }} ..."
+            git fetch --all --tags --prune
+            # Reset the working tree to the exact tagged commit.
+            git checkout -f "${{ github.ref_name }}"
+            git reset --hard "${{ github.ref_name }}"
+            # Reuse the repo's idempotent deploy (build app+strapi, up -d, prune).
+            DEPLOY_BRANCH="${{ github.ref_name }}" ./scripts/deploy.sh
+
+      - name: Verify /health returns 200
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            echo "### Waiting for the app to become healthy ..."
+            for i in $(seq 1 30); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' https://taxnexusapp.com/health || true)
+              if [ "$code" = "200" ]; then
+                echo "OK: /health returned 200 (attempt $i)"
+                curl -s https://taxnexusapp.com/health
+                exit 0
+              fi
+              echo "attempt $i: /health -> $code; retrying ..."
+              sleep 4
+            done
+            echo "ERROR: /health never returned 200" >&2
+            exit 1
