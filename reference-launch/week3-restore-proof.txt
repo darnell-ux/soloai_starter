@@ -1,0 +1,31 @@
+TaxNexus — Objective 4 Restore Test (to staging, prod-safe)
+Captured: 2026-08-14 20:11:40 UTC  Host: 2.25.203.69
+Archive under test: /root/backups/taxnexus-20260814-2011.sql.gz
+============================================================
+
+# Reset any prior test schema so this run is clean
+[2026-08-14 20:11:40 UTC] $ mysql -e "DROP DATABASE IF EXISTS taxnexus_staging"
+
+[2026-08-14 20:11:41 UTC] PROD databases + /health BEFORE restore:
+information_schema mautic mysql performance_schema soloai_db strapi_db sys 
+  prod /health -> HTTP 200
+
+[2026-08-14 20:11:41 UTC] $ SOURCE_DB=mautic bash scripts/restore.sh "/root/backups/taxnexus-20260814-2011.sql.gz" taxnexus_staging
+[2026-08-14 20:11:41] STAGING restore: 'mautic' (from /root/backups/taxnexus-20260814-2011.sql.gz) -> schema 'taxnexus_staging'
+[2026-08-14 20:11:41] Creating target schema 'taxnexus_staging' if absent ...
+[2026-08-14 20:11:41] Loading 'mautic' tables into 'taxnexus_staging' ...
+[2026-08-14 20:11:44] Verification: schema 'taxnexus_staging' now has 109 table(s).
+[2026-08-14 20:11:44] RESTORE TEST PASSED — staging schema populated, production untouched.
+
+[2026-08-14 20:11:44 UTC] SELECT COUNT verification (tables per schema):
+mautic	109
+strapi_db	52
+taxnexus_staging	109
+
+[2026-08-14 20:11:44 UTC] Row-count spot check: SELECT COUNT(*) FROM taxnexus_staging.leads;
+50
+
+[2026-08-14 20:11:44 UTC] PROD databases + /health AFTER restore (must be unaffected):
+information_schema mautic mysql performance_schema soloai_db strapi_db sys taxnexus_staging 
+{"status":"ok","version":"1.0.0","timestamp":"2026-08-14T20:11:44.572Z","services":{"app":"ok","database":"ok"}}  prod /health body: 200
+

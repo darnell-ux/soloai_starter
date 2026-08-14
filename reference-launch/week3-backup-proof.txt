@@ -1,0 +1,25 @@
+TaxNexus — Objective 3 Nightly Backup — VPS proof
+Captured: 2026-08-14 20:11:21 UTC  Host: 2.25.203.69 (/root/soloai_starter)
+============================================================
+
+$ bash scripts/backup.sh
+[2026-08-14 20:11:21] Starting backup -> /root/backups/taxnexus-20260814-2011.sql.gz
+[2026-08-14 20:11:22] Backup complete: /root/backups/taxnexus-20260814-2011.sql.gz (980K)
+[2026-08-14 20:11:22] Pruning backups older than 7 day(s) in /root/backups
+[2026-08-14 20:11:22] Pruned 0 old archive(s)
+[2026-08-14 20:11:22] Current backups:
+total 1916
+drwxr-xr-x  2 root root    4096 Aug 14 20:11 .
+drwx------ 12 root root    4096 Aug 14 20:07 ..
+-rw-r--r--  1 root root  949113 Aug 14 20:07 taxnexus-20260814-2007.sql.gz
+-rw-r--r--  1 root root 1003483 Aug 14 20:11 taxnexus-20260814-2011.sql.gz
+
+$ ls -la /root/backups/
+total 1916
+drwxr-xr-x  2 root root    4096 Aug 14 20:11 .
+drwx------ 12 root root    4096 Aug 14 20:07 ..
+-rw-r--r--  1 root root  949113 Aug 14 20:07 taxnexus-20260814-2007.sql.gz
+-rw-r--r--  1 root root 1003483 Aug 14 20:11 taxnexus-20260814-2011.sql.gz
+
+$ crontab -l   # nightly 02:00 job
+0 2 * * * /root/soloai_starter/scripts/backup.sh >> /var/log/taxnexus-backup.log 2>&1
