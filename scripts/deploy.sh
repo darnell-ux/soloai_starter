@@ -9,12 +9,20 @@
 # and TLS bootstrapped via scripts/init-letsencrypt.sh.
 set -euo pipefail
 
-branch="${DEPLOY_BRANCH:-main}"
+ref="${DEPLOY_BRANCH:-main}"
 
-echo "### Fetching ${branch} ..."
-git fetch --all --prune
-git checkout "$branch"
-git reset --hard "origin/${branch}"
+echo "### Fetching ${ref} ..."
+git fetch --all --tags --force --prune
+# Resolve the deploy target: branches live under origin/<name>; tags and raw
+# commits are used as-is (there is no origin/<tag>). This lets the release
+# workflow deploy an exact tag (e.g. v1.0.0) while manual branch deploys still work.
+if git show-ref -q --verify "refs/remotes/origin/${ref}"; then
+  target="origin/${ref}"
+else
+  target="${ref}"
+fi
+git checkout -f "$ref"
+git reset --hard "$target"
 
 if [ ! -f .env ]; then
   echo "ERROR: production .env missing on the VPS. Copy .env.production.example -> .env and fill it." >&2
