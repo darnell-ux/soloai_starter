@@ -73,7 +73,9 @@ jobs:
           set -euo pipefail
           cd "$APP_DIR"
           echo "### Deploying tag $TAG on $(hostname) ..."
-          git fetch --all --tags --prune
+          # --force so a re-pointed release tag updates cleanly instead of
+          # "would clobber existing tag".
+          git fetch --all --tags --force --prune
           # Reset the working tree to the exact tagged commit.
           git checkout -f "$TAG"
           git reset --hard "$TAG"
