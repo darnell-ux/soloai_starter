@@ -63,11 +63,20 @@ if [ -n "${target_db}" ]; then
 
   # Slice the single source database out of the --all-databases dump and strip its
   # CREATE DATABASE / USE lines so the tables land in <target_db> instead of prod.
+  # We prepend FOREIGN_KEY_CHECKS=0: mysqldump's FK-disable pragma lives in the
+  # file header (before the first database), which the slice deliberately skips —
+  # without it, tables with cross-references (e.g. mautic's `leads`) fail to load
+  # in dump order. Re-enabled at the end so the restored schema stays consistent.
   log "Loading '${SOURCE_DB}' tables into '${target_db}' ..."
-  gunzip -c "${archive}" \
-    | sed -n "/^-- Current Database: \`${SOURCE_DB}\`/,/^-- Current Database: \`/p" \
-    | grep -vE '^(CREATE DATABASE|USE )' \
-    | docker exec -i "${DB_CONTAINER}" sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot "$1"' _ "${target_db}"
+  {
+    echo 'SET FOREIGN_KEY_CHECKS=0;'
+    echo 'SET UNIQUE_CHECKS=0;'
+    gunzip -c "${archive}" \
+      | sed -n "/^-- Current Database: \`${SOURCE_DB}\`/,/^-- Current Database: \`/p" \
+      | grep -vE '^(CREATE DATABASE|USE )'
+    echo 'SET FOREIGN_KEY_CHECKS=1;'
+    echo 'SET UNIQUE_CHECKS=1;'
+  } | docker exec -i "${DB_CONTAINER}" sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot "$1"' _ "${target_db}"
 
   # Verify with a SELECT COUNT.
   table_count="$(mysql_exec -N -B -e \
