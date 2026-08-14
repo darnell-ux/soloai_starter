@@ -38,5 +38,5 @@ docker compose up -d --remove-orphans
 echo "### Pruning dangling images ..."
 docker image prune -f
 
-echo "### Deployed ${branch}. Live containers:"
+echo "### Deployed ${ref}. Live containers:"
 docker compose ps
