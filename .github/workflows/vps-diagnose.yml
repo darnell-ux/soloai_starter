@@ -1,0 +1,45 @@
+name: vps-diagnose
+
+# Read-only incident diagnostics on the VPS, via the self-hosted runner.
+# Inbound SSH is firewalled off, so this workflow is the only way to inspect
+# container state from outside. It changes nothing — logs and status only.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: vps-diagnose
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, taxnexus-vps]
+    steps:
+      - name: Container status
+        env:
+          APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          set -uo pipefail
+          cd "$APP_DIR"
+          echo "=== git HEAD ==="
+          git log --oneline -1 || true
+          echo "=== docker compose ps ==="
+          docker compose ps || true
+          echo "=== app restart count ==="
+          docker inspect taxnexus-app-1 --format '{{.RestartCount}} restarts; state={{.State.Status}}; exit={{.State.ExitCode}}; oom={{.State.OOMKilled}}' || true
+
+      - name: App logs
+        env:
+          APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          set -uo pipefail
+          cd "$APP_DIR"
+          echo "=== app logs (tail 150) ==="
+          docker compose logs --tail=150 --no-color app || true
+
+      - name: Host resources
+        run: |
+          set -uo pipefail
+          echo "=== disk ==="
+          df -h / /var/lib/docker 2>/dev/null || df -h
+          echo "=== memory ==="
+          free -m || true
