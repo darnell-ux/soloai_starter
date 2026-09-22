@@ -35,6 +35,24 @@ docker compose build app strapi
 echo "### Rolling the stack ..."
 docker compose up -d --remove-orphans
 
+# Recreating app/strapi gives those containers NEW Docker network IPs, but
+# nginx.conf proxies to the `app` / `strapi` hostnames with no `resolver`
+# directive — so nginx resolves them once at config load and caches the result
+# for the life of the process. A long-running nginx (it is not recreated by a
+# deploy) therefore keeps proxying to the old, now-dead IPs and every request
+# 502s. Reloading makes it re-resolve.
+#
+# This bit us on 2026-09-22: nginx had been up 7 weeks, the first successful
+# rebuild in that window swapped the app container, and the whole site went 502
+# while the app itself was healthy and listening on :3000.
+echo "### Reloading nginx so it re-resolves upstreams ..."
+if docker compose exec -T nginx nginx -t; then
+  docker compose exec -T nginx nginx -s reload
+else
+  echo "ERROR: nginx config test failed; refusing to reload." >&2
+  exit 1
+fi
+
 echo "### Pruning dangling images ..."
 docker image prune -f
 

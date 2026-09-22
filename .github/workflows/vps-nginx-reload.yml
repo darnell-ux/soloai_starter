@@ -1,0 +1,47 @@
+name: vps-nginx-reload
+
+# Validates and reloads nginx on the VPS via the self-hosted runner.
+#
+# Why this exists: nginx.conf proxies to the `app`/`strapi` hostnames with no
+# `resolver`, so nginx caches their IPs at config load. When a deploy recreates
+# those containers they get new IPs and nginx 502s until it re-resolves.
+# scripts/deploy.sh now reloads automatically; this is the manual lever for
+# when the site is already 502ing and you need it back without a full deploy.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: vps-nginx-reload
+  cancel-in-progress: false
+
+jobs:
+  reload:
+    runs-on: [self-hosted, taxnexus-vps]
+    steps:
+      - name: Validate and reload nginx
+        env:
+          APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          set -euo pipefail
+          cd "$APP_DIR"
+          echo "### nginx -t"
+          docker compose exec -T nginx nginx -t
+          echo "### reloading"
+          docker compose exec -T nginx nginx -s reload
+          echo "### reloaded"
+
+      - name: Verify /health returns 200
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' https://taxnexusapp.com/health || true)
+            if [ "$code" = "200" ]; then
+              echo "OK: /health returned 200 (attempt $i)"
+              curl -s https://taxnexusapp.com/health; echo
+              exit 0
+            fi
+            echo "attempt $i: /health -> $code; retrying ..."
+            sleep 3
+          done
+          echo "ERROR: /health never returned 200 after reload" >&2
+          exit 1
