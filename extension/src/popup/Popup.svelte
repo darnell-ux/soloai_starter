@@ -11,6 +11,9 @@
   let snoozeUntil = $state(0);
   let dismissed = $state(false);
   let activeTabId = $state(null);
+  // True only when the shown record is this tab's own detection, not a
+  // fallback to the last result recorded on some other tab.
+  let isThisPage = $state(false);
 
   const risk = $derived(record?.risk ?? RISK.UNKNOWN);
   const signals = $derived(record?.signals ?? null);
@@ -58,7 +61,12 @@
 
     // Prefer this tab's own detection; fall back to the last global record so a
     // freshly opened popup on a non-Amazon tab still shows the latest finding.
+    //
+    // Track WHICH of the two we used. The extension runs only on Seller
+    // Central, so most tabs have no detection of their own and we are showing
+    // a result from somewhere else — the UI must not label that "this page".
     const perTab = activeTabId != null ? stored[detectionKey(activeTabId)] : null;
+    isThisPage = perTab != null;
     record = perTab ?? stored[STORAGE.LATEST] ?? null;
 
     snoozeUntil = Number(stored[STORAGE.SNOOZE_UNTIL]) || 0;
@@ -109,9 +117,17 @@
     // Live-update if the content script reports while the popup is open.
     const onChange = (changes, area) => {
       if (area !== 'local') return;
-      if (changes[STORAGE.LATEST]) record = changes[STORAGE.LATEST].newValue;
+      // Keep `record` and `isThisPage` in lockstep, or a scan on a different
+      // tab would repaint this popup with that tab's result still labelled
+      // "this page". The service worker writes both keys in one set(), so when
+      // the detection IS ours the second branch corrects the first.
+      if (changes[STORAGE.LATEST]) {
+        record = changes[STORAGE.LATEST].newValue;
+        isThisPage = false;
+      }
       if (activeTabId != null && changes[detectionKey(activeTabId)]) {
         record = changes[detectionKey(activeTabId)].newValue;
+        isThisPage = true;
       }
       if (changes[STORAGE.SNOOZE_UNTIL]) {
         snoozeUntil = Number(changes[STORAGE.SNOOZE_UNTIL].newValue) || 0;
@@ -121,11 +137,19 @@
     return () => chrome.storage.onChanged.removeListener(onChange);
   });
 
-  const STATUS = {
+  // "on this page" is only truthful when we're showing this tab's own
+  // detection. On any other tab the same record is the user's last known
+  // state, not a statement about what they're currently looking at.
+  const STATUS = $derived({
     [RISK.EXPOSED]: { label: 'CA nexus exposure detected', cls: 'exposed' },
-    [RISK.CLEAR]: { label: 'No CA inventory signal on this page', cls: 'clear' },
+    [RISK.CLEAR]: {
+      label: isThisPage
+        ? 'No CA inventory signal on this page'
+        : 'No CA inventory signal in your last scan',
+      cls: 'clear'
+    },
     [RISK.UNKNOWN]: { label: 'No data yet', cls: 'unknown' }
-  };
+  });
 
   // Only HIGH gets a chip. The chip must never contradict the status banner
   // beside it — a green "No CA inventory signal" next to an amber severity
@@ -167,13 +191,15 @@
 
     {#if signals?.signals?.length}
       <section>
-        <h2>Signals on this page</h2>
+        <h2>{isThisPage ? 'Signals on this page' : 'Last scan (another tab)'}</h2>
         <ul>
           {#each signals.signals as s}
             <li>{s}</li>
           {/each}
         </ul>
-        <p class="meta">{signals.host}{signals.path}</p>
+        {#if signals.host}
+          <p class="meta">{isThisPage ? '' : 'from '}{signals.host}{signals.path ?? ''}</p>
+        {/if}
       </section>
     {/if}
 
