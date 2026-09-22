@@ -16,6 +16,13 @@ export default defineConfig({
   build: {
     outDir: resolve(import.meta.dirname, 'dist'),
     emptyOutDir: true,
+    // Vite otherwise injects a modulepreload polyfill containing a fetch() call.
+    // It is dead code here (this build emits no modulepreload links) and would
+    // only ever request the popup's own local assets — but "no fetch anywhere in
+    // the popup" is a claim we make in the README and in the store listing's
+    // permission justifications, and reviewers grep bundles for exactly that.
+    // Keep it literally true.
+    modulePreload: { polyfill: false },
     rollupOptions: {
       input: resolve(import.meta.dirname, 'src/popup/index.html')
     }
