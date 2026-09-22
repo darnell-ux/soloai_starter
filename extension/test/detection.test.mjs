@@ -59,6 +59,7 @@ test('detects CA via plain location text even without an FC code', () => {
   const msg = runCollector(page);
   // No FC code present -> not flagged as inventory, but the CA text signal fires.
   assert.equal(msg.payload.hasCaInventory, false);
+  assert.equal(msg.payload.hasCaText, true);
   assert.ok(msg.payload.signals.some((s) => /California/i.test(s)));
 });
 
@@ -66,7 +67,26 @@ test('does NOT flag a non-California page (Texas FC)', () => {
   const page = 'FBA Inventory  Fulfillment Center: DFW7  Units: 500  Coppell, TX 75019';
   const msg = runCollector(page);
   assert.equal(msg.payload.hasCaInventory, false);
+  assert.equal(msg.payload.hasCaText, false);
   assert.deepEqual(msg.payload.fcCodes, []);
+});
+
+test('reports hasCaInventory and hasCaText as separate booleans', () => {
+  // The service worker derives its alert LEVEL from these two independently:
+  // an FC code is proof of physical CA stock (high), bare CA text is a hint (low).
+  // Collapsing them would make every product page mentioning California a
+  // high alert.
+  const withCode = runCollector('Fulfillment Center: ONT8');
+  assert.equal(withCode.payload.hasCaInventory, true);
+  assert.equal(withCode.payload.hasCaText, false, 'FC code alone is not location text');
+
+  const textOnly = runCollector('Ships from Los Angeles, CA 90001');
+  assert.equal(textOnly.payload.hasCaInventory, false);
+  assert.equal(textOnly.payload.hasCaText, true);
+
+  const both = runCollector('Fulfillment Center: SMF1 — Sacramento, California 95837');
+  assert.equal(both.payload.hasCaInventory, true);
+  assert.equal(both.payload.hasCaText, true);
 });
 
 test('emits no network call surface — payload is data only', () => {

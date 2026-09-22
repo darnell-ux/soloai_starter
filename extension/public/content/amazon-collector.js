@@ -60,6 +60,10 @@
       type: MSG.PAGE_SIGNALS,
       payload: {
         hasCaInventory,
+        // Reported separately from hasCaInventory because the two carry very
+        // different weight: an FC code is proof of physical CA stock (HIGH),
+        // bare "California" text is only a hint worth checking (LOW).
+        hasCaText,
         fcCodes: fcMatches,
         signals,
         host: location.host,

@@ -1,8 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "TaxNexus Nexus Alert Toolbar",
-  "version": "0.1.0",
+  "name": "TaxNexus — CA Nexus Alert for FBA Sellers",
+  "short_name": "TaxNexus Alert",
+  "version": "1.0.0",
   "description": "Flags California nexus exposure for Amazon FBA sellers by detecting CA fulfillment-center inventory signals on Amazon Seller Central.",
+  "homepage_url": "https://taxnexusapp.com",
   "action": {
     "default_title": "TaxNexus Nexus Alert",
     "default_popup": "index.html",

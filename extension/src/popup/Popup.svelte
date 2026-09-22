@@ -1,15 +1,23 @@
 <script>
-  import { MSG, STORAGE, RISK } from '../../shared/messages.js';
+  import { MSG, STORAGE, RISK, ALERT, detectionKey, trialUrl } from '../../shared/messages.js';
 
   // Popup UI state (Svelte 5 runes). The popup performs NO network calls and
-  // NO API logic — it only messages the service worker and renders state.
+  // NO API logic — it reads chrome.storage.local and messages the service
+  // worker. Storage is read in ONE batched get([...]) per load, never as a
+  // sequence of individual gets.
   let record = $state(null);
   let loading = $state(true);
   let rescanNote = $state('');
+  let snoozeUntil = $state(0);
+  let dismissed = $state(false);
+  let activeTabId = $state(null);
 
   const risk = $derived(record?.risk ?? RISK.UNKNOWN);
   const signals = $derived(record?.signals ?? null);
   const assessment = $derived(record?.assessment ?? null);
+  const alertLevel = $derived(record?.alertLevel ?? ALERT.NONE);
+  const ctaHref = $derived(record?.ctaUrl ?? trialUrl(alertLevel));
+  const snoozed = $derived(snoozeUntil > Date.now());
 
   function sendMessage(message) {
     return new Promise((resolve) => {
@@ -20,9 +28,45 @@
     });
   }
 
+  async function currentTabId() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      return tab?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Load every piece of popup state in a SINGLE chrome.storage.local.get call.
+   * Sequential per-key gets would mean one IPC round trip each on popup open —
+   * the one place where latency is visible to the user.
+   */
   async function load() {
     loading = true;
-    record = await sendMessage({ type: MSG.GET_STATE });
+    activeTabId = await currentTabId();
+
+    const keys = [
+      STORAGE.LATEST,
+      STORAGE.SNOOZE_UNTIL,
+      STORAGE.DISMISSED_TABS,
+      STORAGE.LAST_ALERT_LEVEL
+    ];
+    if (activeTabId != null) keys.push(detectionKey(activeTabId));
+
+    const stored = await chrome.storage.local.get(keys);
+
+    // Prefer this tab's own detection; fall back to the last global record so a
+    // freshly opened popup on a non-Amazon tab still shows the latest finding.
+    const perTab = activeTabId != null ? stored[detectionKey(activeTabId)] : null;
+    record = perTab ?? stored[STORAGE.LATEST] ?? null;
+
+    snoozeUntil = Number(stored[STORAGE.SNOOZE_UNTIL]) || 0;
+    const dismissedTabs = stored[STORAGE.DISMISSED_TABS];
+    dismissed = Array.isArray(dismissedTabs) && activeTabId != null
+      ? dismissedTabs.includes(activeTabId)
+      : false;
+
     loading = false;
   }
 
@@ -44,12 +88,33 @@
     }, 600);
   }
 
+  async function snooze() {
+    const res = await sendMessage({ type: MSG.SNOOZE });
+    if (res?.snoozeUntil) snoozeUntil = res.snoozeUntil;
+  }
+
+  async function dismiss() {
+    if (activeTabId == null) return;
+    const res = await sendMessage({ type: MSG.DISMISS, tabId: activeTabId });
+    if (res?.ok) dismissed = true;
+  }
+
+  function snoozeReturnLabel(until) {
+    const days = Math.max(1, Math.ceil((until - Date.now()) / 86400000));
+    return `Alerts paused — back in ${days} day${days === 1 ? '' : 's'}.`;
+  }
+
   $effect(() => {
     load();
     // Live-update if the content script reports while the popup is open.
     const onChange = (changes, area) => {
-      if (area === 'local' && changes[STORAGE.LATEST]) {
-        record = changes[STORAGE.LATEST].newValue;
+      if (area !== 'local') return;
+      if (changes[STORAGE.LATEST]) record = changes[STORAGE.LATEST].newValue;
+      if (activeTabId != null && changes[detectionKey(activeTabId)]) {
+        record = changes[detectionKey(activeTabId)].newValue;
+      }
+      if (changes[STORAGE.SNOOZE_UNTIL]) {
+        snoozeUntil = Number(changes[STORAGE.SNOOZE_UNTIL].newValue) || 0;
       }
     };
     chrome.storage.onChanged.addListener(onChange);
@@ -60,6 +125,12 @@
     [RISK.EXPOSED]: { label: 'CA nexus exposure detected', cls: 'exposed' },
     [RISK.CLEAR]: { label: 'No CA inventory signal on this page', cls: 'clear' },
     [RISK.UNKNOWN]: { label: 'No data yet', cls: 'unknown' }
+  };
+
+  const LEVEL_LABEL = {
+    [ALERT.HIGH]: 'HIGH',
+    [ALERT.LOW]: 'LOW',
+    [ALERT.NONE]: null
   };
 </script>
 
@@ -74,7 +145,16 @@
   {:else}
     <div class="status {STATUS[risk].cls}">
       <strong>{STATUS[risk].label}</strong>
+      {#if LEVEL_LABEL[alertLevel]}
+        <span class="level {alertLevel}">{LEVEL_LABEL[alertLevel]}</span>
+      {/if}
     </div>
+
+    {#if snoozed}
+      <p class="muted">{snoozeReturnLabel(snoozeUntil)}</p>
+    {:else if dismissed}
+      <p class="muted">Dismissed for this tab. Re-scan to bring it back.</p>
+    {/if}
 
     {#if signals?.signals?.length}
       <section>
@@ -113,10 +193,20 @@
 
     <div class="actions">
       <button onclick={rescan}>Re-scan this page</button>
-      <a href="https://taxnexusapp.com/audit" target="_blank" rel="noreferrer">
-        Run full audit →
-      </a>
+      <a href={ctaHref} target="_blank" rel="noreferrer">Start free trial →</a>
     </div>
+
+    <div class="minor">
+      {#if !dismissed}
+        <button class="link" onclick={dismiss} disabled={activeTabId == null}>
+          Dismiss for this tab
+        </button>
+      {/if}
+      {#if !snoozed}
+        <button class="link" onclick={snooze}>Snooze 7 days</button>
+      {/if}
+    </div>
+
     {#if rescanNote}<p class="muted">{rescanNote}</p>{/if}
   {/if}
 </main>
@@ -149,6 +239,10 @@
     letter-spacing: 0.08em;
   }
   .status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 10px 12px;
     border-radius: 8px;
     font-size: 14px;
@@ -168,6 +262,21 @@
     background: #f3f4f6;
     border-color: #e5e7eb;
     color: #4b5563;
+  }
+  .level {
+    flex: none;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #fff;
+  }
+  .level.high {
+    background: #b91c1c;
+  }
+  .level.low {
+    background: #b45309;
   }
   section {
     margin-top: 14px;
@@ -224,5 +333,21 @@
     color: #b45309;
     text-decoration: none;
     font-weight: 600;
+  }
+  .minor {
+    display: flex;
+    gap: 14px;
+    margin-top: 10px;
+  }
+  button.link {
+    background: none;
+    color: #6b7280;
+    padding: 0;
+    font-size: 12px;
+    text-decoration: underline;
+  }
+  button.link:disabled {
+    color: #d1d5db;
+    cursor: default;
   }
 </style>

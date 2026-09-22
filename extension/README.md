@@ -52,6 +52,33 @@ unpacked** → select **`extension/dist`**.
 | `src/popup/` | Svelte 5 popup (compiled by Vite) |
 | `shared/messages.js` | Message/storage contract (source of truth) |
 | `test/detection.test.mjs` | Runs the real content script against fixtures |
+| `test/service-worker.test.mjs` | Assess → risk → alert level → badge decisions |
+| `test/storage.test.mjs` | Snooze, per-tab dismiss, stale-key cleanup |
+| `TESTING.md` | Manual checklist, E2E targets, edge cases, bug template |
+| `store-listing.md` | Chrome Web Store copy + permission justifications |
+| `LAUNCH-CHECKLIST.md` | Pre-submission gate and distribution plan |
+
+## State model
+
+All state is `chrome.storage.local`; nothing syncs.
+
+| Key | Type | Meaning |
+|---|---|---|
+| `taxnexus.latest` | object | Most recent detection record, any tab |
+| `detection_{tabId}` | object | That tab's record + `storedAt`; swept after 24h |
+| `snooze_until` | timestamp ms | Alerts silent until this time (7 days) |
+| `dismissed_tabs` | array | Tab ids dismissed; cleared on tab close and restart |
+| `last_alert_level` | string | `high` \| `low` \| `none` |
+
+**Alert levels.** A CA fulfillment-center code is proof of physical stock in
+California → `high`. Bare "California" page text is a hint, not proof → `low`.
+Collapsing the two would make every CA-shipped product page a red alert.
+
+**Suppression suppresses the interruption, not the finding.** While snoozed or
+dismissed the badge stays dark, but storage is still written and the popup still
+shows the detection on demand. Snooze survives a browser restart (it is a
+timestamp); per-tab dismissals deliberately do not, because Chrome recycles tab
+ids across sessions.
 
 ## API access (why permissions stay minimal)
 
@@ -95,12 +122,15 @@ with fixture Seller Central markup and asserts the message it emits:
 - ✅ "Tracy, California 95377" text → CA location signal (no FC code → not inventory)
 - ✅ Texas FC `DFW7` → not flagged (no false positive)
 - ✅ payload is data-only; no `fetch(`/`XMLHttpRequest` anywhere in the script
+- ✅ `hasCaInventory` and `hasCaText` are reported as independent booleans
 
-Run: `npm test` → `tests 4 / pass 4 / fail 0`.
+Run: `npm test` → `tests 26 / pass 26 / fail 0` across detection, service-worker
+decisions, and storage state.
 
-This is logic-level verification of the detection path. It does **not** drive a
-real browser, render the popup, or exercise the live `/api/taxnexus/assess`
-round trip — which is exactly why that end-to-end path is the E2E candidate.
+This is logic-level verification. It does **not** drive a real browser, render
+the popup, or exercise the live `/api/taxnexus/assess` round trip — which is
+exactly why that end-to-end path is the E2E candidate. The manual checklist that
+covers the rest is in `TESTING.md`.
 
 ## E2E candidate for future work (#8)
 

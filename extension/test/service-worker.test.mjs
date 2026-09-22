@@ -1,110 +1,109 @@
 // Verification of the service worker's core decision path:
 //   PAGE_SIGNALS message -> assess (mocked) -> chrome.storage.local + badge.
 //
-// Loads the ACTUAL shipped service worker (public/service-worker.js) inside a
-// sandbox with a fake `chrome` and `fetch`, delivers a page-signals message,
-// and asserts the persisted risk + toolbar badge. Exercises the real code path,
-// not a reimplementation — the counterpart to detection.test.mjs for the SW.
+// Loads the ACTUAL shipped service worker via the shared harness, delivers a
+// page-signals message, and asserts the persisted risk + toolbar badge.
+// Exercises the real code path, not a reimplementation — the counterpart to
+// detection.test.mjs for the SW. Snooze/dismiss/cleanup live in storage.test.mjs.
 //
 // The critical case is "CA inventory detected but the assess API is DOWN": the
 // extension must still report EXPOSED (its whole reason to exist is the offline
 // blindside warning), not degrade to UNKNOWN.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import vm from 'node:vm';
+import { loadWorker, okAssess, failAssess, STORAGE_KEY, LAST_LEVEL_KEY } from './harness.mjs';
 
-const SCRIPT = readFileSync(
-  resolve(import.meta.dirname, '../public/service-worker.js'),
-  'utf8'
-);
-
-const STORAGE_KEY = 'taxnexus.latest';
-
-/**
- * Instantiate the service worker with a mock `chrome`/`fetch`. Returns helpers
- * to deliver a message and to inspect the resulting storage + badge state.
- *
- * `fetchImpl` stands in for the assess API call; pass one that resolves (ok),
- * returns a non-ok response, or rejects to simulate an outage.
- */
-function loadWorker(fetchImpl) {
-  let onMessage = null;
-  const store = {};
-  const badge = { text: undefined, color: undefined };
-
-  const sandbox = {
-    console: { warn() {}, info() {}, debug() {}, log() {} },
-    Date,
-    Set,
-    Array,
-    RegExp,
-    JSON,
-    fetch: fetchImpl,
-    chrome: {
-      runtime: {
-        lastError: undefined,
-        onMessage: { addListener: (fn) => { onMessage = fn; } },
-        onInstalled: { addListener() {} }
-      },
-      action: {
-        setBadgeBackgroundColor: async (o) => { badge.color = o.color; },
-        setBadgeText: async (o) => { badge.text = o.text; }
-      },
-      storage: {
-        local: {
-          set: async (obj) => { Object.assign(store, obj); },
-          get: async (key) => (key in store ? { [key]: store[key] } : {})
-        }
-      },
-      tabs: { query: async () => [], sendMessage: async () => {} },
-      scripting: { executeScript: async () => {} }
-    }
-  };
-
-  vm.runInNewContext(SCRIPT, sandbox);
-  assert.ok(onMessage, 'service worker registered an onMessage listener');
-
-  // The handler returns true and calls sendResponse(record) when done — resolve
-  // on that callback so tests can await the full async pass.
-  const sendPageSignals = (payload) =>
-    new Promise((res) => onMessage({ type: 'taxnexus/page-signals', payload }, {}, res));
-
-  return { sendPageSignals, store, badge };
-}
-
-const okAssess = (bodyObj) => async () => ({ ok: true, json: async () => bodyObj });
-const failAssess = () => async () => { throw new Error('network down'); };
+const TAB = 7;
 
 test('CA inventory + assess says nexus -> EXPOSED, red "!" badge', async () => {
-  const w = loadWorker(okAssess({ hasNexus: true, triggers: ['Physical inventory in CA'], minTax: 800 }));
-  const record = await w.sendPageSignals({ hasCaInventory: true, fcCodes: ['ONT8'], signals: ['ONT8'] });
-  assert.equal(record.risk, 'exposed');
-  assert.equal(w.store[STORAGE_KEY].risk, 'exposed');
-  assert.equal(w.badge.text, '!');
+	const w = loadWorker(okAssess({ hasNexus: true, triggers: ['Physical inventory in CA'], minTax: 800 }));
+	const record = await w.sendPageSignals(
+		{ hasCaInventory: true, hasCaText: true, fcCodes: ['ONT8'], signals: ['ONT8'] },
+		TAB
+	);
+	assert.equal(record.risk, 'exposed');
+	assert.equal(w.store[STORAGE_KEY].risk, 'exposed');
+	assert.equal(w.badge.byTab[TAB].text, '!');
 });
 
 test('CA inventory + assess API DOWN -> still EXPOSED (offline blindside warning)', async () => {
-  const w = loadWorker(failAssess());
-  const record = await w.sendPageSignals({ hasCaInventory: true, fcCodes: ['SMF1'], signals: ['SMF1'] });
-  // The regression this guards: a real CA signal must NOT degrade to UNKNOWN
-  // just because the assess call failed.
-  assert.equal(record.risk, 'exposed');
-  assert.equal(record.assessment, null);
-  assert.equal(w.badge.text, '!');
+	const w = loadWorker(failAssess());
+	const record = await w.sendPageSignals(
+		{ hasCaInventory: true, hasCaText: false, fcCodes: ['SMF1'], signals: ['SMF1'] },
+		TAB
+	);
+	// The regression this guards: a real CA signal must NOT degrade to UNKNOWN
+	// just because the assess call failed.
+	assert.equal(record.risk, 'exposed');
+	assert.equal(record.assessment, null);
+	assert.equal(w.badge.byTab[TAB].text, '!');
 });
 
 test('no CA inventory + assess says no nexus -> CLEAR, green check badge', async () => {
-  const w = loadWorker(okAssess({ hasNexus: false, triggers: [] }));
-  const record = await w.sendPageSignals({ hasCaInventory: false, fcCodes: [], signals: [] });
-  assert.equal(record.risk, 'clear');
-  assert.equal(w.badge.text, '✓');
+	const w = loadWorker(okAssess({ hasNexus: false, triggers: [] }));
+	const record = await w.sendPageSignals(
+		{ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] },
+		TAB
+	);
+	assert.equal(record.risk, 'clear');
+	assert.equal(w.badge.byTab[TAB].text, '✓');
 });
 
 test('no CA inventory + assess API DOWN -> UNKNOWN, no badge', async () => {
-  const w = loadWorker(failAssess());
-  const record = await w.sendPageSignals({ hasCaInventory: false, fcCodes: [], signals: [] });
-  assert.equal(record.risk, 'unknown');
-  assert.equal(w.badge.text, '');
+	const w = loadWorker(failAssess());
+	const record = await w.sendPageSignals(
+		{ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] },
+		TAB
+	);
+	assert.equal(record.risk, 'unknown');
+	assert.equal(w.badge.byTab[TAB].text, '');
+});
+
+test('a tab-less sender still works (badge falls back to the global default)', async () => {
+	// chrome.scripting.executeScript injections and legacy callers can arrive
+	// without sender.tab; that must not throw or skip persistence.
+	const w = loadWorker(okAssess({ hasNexus: true, triggers: [], minTax: 800 }));
+	const record = await w.sendPageSignals({ hasCaInventory: true, hasCaText: true, fcCodes: ['LAX9'], signals: [] });
+	assert.equal(record.risk, 'exposed');
+	assert.equal(w.badge.text, '!', 'global badge, not a per-tab one');
+	assert.deepEqual(Object.keys(w.badge.byTab), [], 'no per-tab badge written');
+});
+
+// --- alert level derivation -------------------------------------------------
+
+test('alert level: FC code -> high, CA text only -> low, nothing -> none', async () => {
+	const w = loadWorker(okAssess({ hasNexus: false, triggers: [] }));
+
+	const high = await w.sendPageSignals(
+		{ hasCaInventory: true, hasCaText: true, fcCodes: ['ONT8'], signals: [] },
+		1
+	);
+	assert.equal(high.alertLevel, 'high');
+
+	const low = await w.sendPageSignals(
+		{ hasCaInventory: false, hasCaText: true, fcCodes: [], signals: [] },
+		2
+	);
+	assert.equal(low.alertLevel, 'low');
+
+	const none = await w.sendPageSignals(
+		{ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] },
+		3
+	);
+	assert.equal(none.alertLevel, 'none');
+
+	// last_alert_level tracks the most recent pass.
+	assert.equal(w.store[LAST_LEVEL_KEY], 'none');
+});
+
+test('assess-driven nexus with no local CA signal still reads as high', async () => {
+	// If the API says hasNexus the risk is EXPOSED, and an EXPOSED page is never
+	// a "low" alert — the two must not disagree in the UI.
+	const w = loadWorker(okAssess({ hasNexus: true, triggers: ['Sales over threshold'], minTax: 800 }));
+	const record = await w.sendPageSignals(
+		{ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] },
+		1
+	);
+	assert.equal(record.risk, 'exposed');
+	assert.equal(record.alertLevel, 'high');
 });
