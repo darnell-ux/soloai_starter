@@ -5,8 +5,9 @@ CMS + nginx/TLS + MySQL + Mautic stack on the Hostinger KVM2, via Docker Compose
 
 > This runbook orchestrates tooling that already lives in the repo:
 > `scripts/init-letsencrypt.sh` (TLS bootstrap), `scripts/deploy.sh` (roll the
-> stack), `npm run validate-env` / `check:secrets`, and `.github/workflows/deploy.yml`
-> (SSH deploy on push to `main`). For the "why" behind the env slots, see
+> stack), `npm run validate-env` / `check:secrets`, and
+> `.github/workflows/release.yml` (tagged deploy via the self-hosted runner).
+> For the "why" behind the env slots, see
 > `docs/FOUNDER-PRODUCTION-READINESS.md`.
 
 The stack (from `docker-compose.yml`): `db` (MySQL), `nginx` (80/443/8082),
@@ -174,13 +175,55 @@ Green = app returns 200, chat streams, assess returns JSON with `X-Request-Id`,
 
 ## Ongoing deploys
 
-- **Automated:** pushing to `main` triggers `.github/workflows/deploy.yml`, which
-  SSHes to the VPS and runs `scripts/deploy.sh` (git reset to `origin/main`,
-  rebuild `app`+`strapi`, `up -d`). Confirm the workflow's required repo secrets
-  (SSH host/user/key) are set in GitHub → Settings → Secrets.
-- **Manual:** on the VPS, `DEPLOY_BRANCH=main bash scripts/deploy.sh`.
+**Cutting a release is the only automated path.** Push an annotated semver tag;
+`.github/workflows/release.yml` builds on a GitHub runner, then deploys on the
+**self-hosted runner that lives on the VPS** (label `taxnexus-vps`) and verifies
+`/health` returns 200.
 
+```bash
+# bump APP_VERSION in src/routes/health/+server.ts AND package.json first —
+# /health's reported version is the only external proof the new code is live
+git tag -a v1.2.3 -m "what shipped"
+git push origin v1.2.3
+```
+
+Pushing to `main` alone deploys **nothing**. There was an SSH-based
+`deploy.yml` that fired on every push to `main`; it was deleted on 2026-09-22
+after failing every run since August (its `VPS_SSH_KEY` secret was removed when
+the self-hosted runner replaced it, and inbound SSH is firewalled off — only
+80/443 are public). Do not reintroduce an inbound-SSH deploy without reopening
+port 22.
+
+**Manual, on the VPS:** `DEPLOY_BRANCH=main bash scripts/deploy.sh`.
 `deploy.sh` is idempotent and refuses to run if `.env` is missing.
+
+**No SSH from a laptop.** To inspect or act on the VPS, dispatch a workflow on
+the self-hosted runner:
+
+| Workflow | Does |
+|---|---|
+| `.github/workflows/vps-diagnose.yml` | read-only: `compose ps`, app logs, restart count, disk/memory |
+| `.github/workflows/vps-nginx-reload.yml` | `nginx -t` + reload, then verify `/health` |
+
+### The nginx upstream trap (caused a production outage on 2026-09-22)
+
+`nginx.conf` proxies to the `app` and `strapi` **hostnames with no `resolver`
+directive**, so nginx resolves them once at config load and caches the IPs for
+the life of the process. A deploy recreates `app`/`strapi` — giving them new
+Docker network IPs — but never recreates nginx. A long-running nginx therefore
+keeps proxying to dead IPs and **every route 502s while the app is completely
+healthy and listening on :3000**.
+
+`scripts/deploy.sh` now runs `nginx -t` + `nginx -s reload` after `up -d`, which
+prevents it. Two things make this trap hard to recognise if it ever recurs:
+
+- **Rolling back does not fix it.** The rollback recreates the container too, so
+  it just produces another new IP that nginx also doesn't know about.
+- **The app looks fine** — `0 restarts`, `state=running`, `Listening on
+  http://0.0.0.0:3000`. The symptom is entirely in nginx.
+
+If the site 502s after a deploy, run `vps-nginx-reload` before suspecting the
+app or the code.
 
 ## Rollback
 

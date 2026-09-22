@@ -2,7 +2,10 @@
 
 Concrete steps to take the field-dossier site live. Built pieces:
 adapter-node + `Dockerfile.app`, an `app` compose service, nginx TLS routing,
-Let's Encrypt via certbot, and an SSH deploy (`scripts/deploy.sh` + `.github/workflows/deploy.yml`).
+Let's Encrypt via certbot, and a tagged deploy (`scripts/deploy.sh` +
+`.github/workflows/release.yml`, run on the VPS's self-hosted runner). The
+SSH-based `deploy.yml` this document originally referenced was deleted on
+2026-09-22; see `docs/deploy-runbook.md` → "Ongoing deploys".
 
 ## Topology
 - `https://taxnexusapp.com` (+ `www`) → nginx :443 → `app:3000` (SvelteKit/adapter-node)

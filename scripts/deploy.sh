@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # VPS-side deploy: pull the deploy branch, rebuild the app image, roll the stack.
-# Idempotent — safe to re-run. Invoked by .github/workflows/deploy.yml over SSH,
-# or run by hand on the VPS from the repo root.
+# Idempotent — safe to re-run. Invoked by .github/workflows/release.yml on the
+# VPS's own self-hosted runner, or run by hand on the VPS from the repo root.
 #
 #   DEPLOY_BRANCH=main ./scripts/deploy.sh
 #
