@@ -28,10 +28,7 @@
   "permissions": ["activeTab", "storage", "scripting"],
   "content_scripts": [
     {
-      "matches": [
-        "https://sellercentral.amazon.com/*",
-        "https://www.amazon.com/*"
-      ],
+      "matches": ["https://sellercentral.amazon.com/*"],
       "js": ["content/amazon-collector.js"],
       "run_at": "document_idle"
     }

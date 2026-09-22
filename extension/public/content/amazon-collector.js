@@ -1,8 +1,10 @@
 /**
  * TaxNexus content script — Amazon page data collection ONLY.
  *
- * Scope (manifest content_scripts.matches): sellercentral.amazon.com and
- * www.amazon.com. This file:
+ * Scope (manifest content_scripts.matches): sellercentral.amazon.com ONLY.
+ * www.amazon.com was removed on 2026-09-22 — the CA-text signal it existed to
+ * serve fired on Proposition 65 chemical warnings, which are unrelated to
+ * nexus and appear on a large share of listings. This file:
  *   - reads the DOM to detect California fulfillment-center (FC) inventory signals
  *   - reports a structured payload to the service worker
  *
@@ -60,9 +62,11 @@
       type: MSG.PAGE_SIGNALS,
       payload: {
         hasCaInventory,
-        // Reported separately from hasCaInventory because the two carry very
-        // different weight: an FC code is proof of physical CA stock (HIGH),
-        // bare "California" text is only a hint worth checking (LOW).
+        // Reported separately from hasCaInventory, and deliberately NOT an
+        // alert on its own: an FC code proves stock physically sits in CA,
+        // whereas "California" in page text can be a Prop 65 chemical warning.
+        // The service worker keys its alert off hasCaInventory only; this is
+        // context shown in the popup's signal list.
         hasCaText,
         fcCodes: fcMatches,
         signals,

@@ -203,15 +203,15 @@ test('CTA URL carries source=chrome_extension and the alert level', async () => 
 		'https://taxnexusapp.com/trial?source=chrome_extension&alert=high'
 	);
 
-	// A "low" page needs the assess API to also come back clean — an API that
-	// reports nexus would (correctly) escalate this to high.
-	const low = await loadWorker(okAssess({ hasNexus: false, triggers: [] })).sendPageSignals(
+	// A clear page still carries a CTA, tagged so the landing page can tell the
+	// difference between "the extension warned me" and "I clicked from nowhere".
+	const none = await loadWorker(okAssess({ hasNexus: false, triggers: [] })).sendPageSignals(
 		{ hasCaInventory: false, hasCaText: true, fcCodes: [], signals: [] },
 		2
 	);
-	assert.equal(low.alertLevel, 'low');
+	assert.equal(none.alertLevel, 'none');
 	assert.equal(
-		low.ctaUrl,
-		'https://taxnexusapp.com/trial?source=chrome_extension&alert=low'
+		none.ctaUrl,
+		'https://taxnexusapp.com/trial?source=chrome_extension&alert=none'
 	);
 });

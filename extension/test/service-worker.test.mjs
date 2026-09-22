@@ -71,7 +71,7 @@ test('a tab-less sender still works (badge falls back to the global default)', a
 
 // --- alert level derivation -------------------------------------------------
 
-test('alert level: FC code -> high, CA text only -> low, nothing -> none', async () => {
+test('alert level: FC code -> high, everything else -> none', async () => {
 	const w = loadWorker(okAssess({ hasNexus: false, triggers: [] }));
 
 	const high = await w.sendPageSignals(
@@ -79,12 +79,6 @@ test('alert level: FC code -> high, CA text only -> low, nothing -> none', async
 		1
 	);
 	assert.equal(high.alertLevel, 'high');
-
-	const low = await w.sendPageSignals(
-		{ hasCaInventory: false, hasCaText: true, fcCodes: [], signals: [] },
-		2
-	);
-	assert.equal(low.alertLevel, 'low');
 
 	const none = await w.sendPageSignals(
 		{ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] },
@@ -96,9 +90,31 @@ test('alert level: FC code -> high, CA text only -> low, nothing -> none', async
 	assert.equal(w.store[LAST_LEVEL_KEY], 'none');
 });
 
+test('CA text WITHOUT an FC code raises no alert (Prop 65 regression)', async () => {
+	// The regression this guards, found on a real page on 2026-09-22: an Amazon
+	// listing carrying "WARNING: California's Proposition 65" raised a CA nexus
+	// alert on a colon-cleanse supplement. Page text mentioning California says
+	// nothing about where inventory physically sits, so it must not alert.
+	const w = loadWorker(okAssess({ hasNexus: false, triggers: [] }));
+	const record = await w.sendPageSignals(
+		{
+			hasCaInventory: false,
+			hasCaText: true,
+			fcCodes: [],
+			signals: ['California location text present on page']
+		},
+		1
+	);
+
+	assert.equal(record.alertLevel, 'none', 'CA text alone must not raise an alert');
+	assert.equal(w.badge.byTab[1].text, '✓', 'clear badge, not a warning');
+	// The text is still collected and shown as page context — just not as an alert.
+	assert.equal(record.signals.hasCaText, true);
+});
+
 test('assess-driven nexus with no local CA signal still reads as high', async () => {
-	// If the API says hasNexus the risk is EXPOSED, and an EXPOSED page is never
-	// a "low" alert — the two must not disagree in the UI.
+	// If the API says hasNexus the risk is EXPOSED, the alert level must agree —
+	// the banner and the severity chip must never contradict each other.
 	const w = loadWorker(okAssess({ hasNexus: true, triggers: ['Sales over threshold'], minTax: 800 }));
 	const record = await w.sendPageSignals(
 		{ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] },

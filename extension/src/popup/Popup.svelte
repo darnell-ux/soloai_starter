@@ -127,11 +127,20 @@
     [RISK.UNKNOWN]: { label: 'No data yet', cls: 'unknown' }
   };
 
+  // Only HIGH gets a chip. The chip must never contradict the status banner
+  // beside it — a green "No CA inventory signal" next to an amber severity
+  // badge reads as a bug, because it is one.
   const LEVEL_LABEL = {
     [ALERT.HIGH]: 'HIGH',
-    [ALERT.LOW]: 'LOW',
     [ALERT.NONE]: null
   };
+
+  // Render the Assessment section only when it has something to say. The API
+  // returns a well-formed body with no triggers and no minTax on a clear page,
+  // which would otherwise paint a bare "ASSESSMENT" header over empty space.
+  const hasAssessmentDetail = $derived(
+    Boolean(assessment?.triggers?.length) || Boolean(assessment?.minTax)
+  );
 </script>
 
 <main>
@@ -168,7 +177,7 @@
       </section>
     {/if}
 
-    {#if assessment}
+    {#if hasAssessmentDetail}
       <section>
         <h2>Assessment</h2>
         {#if assessment.triggers?.length}
@@ -274,9 +283,6 @@
   }
   .level.high {
     background: #b91c1c;
-  }
-  .level.low {
-    background: #b45309;
   }
   section {
     margin-top: 14px;

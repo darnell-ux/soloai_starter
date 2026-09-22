@@ -60,11 +60,12 @@ Remote code execution is a hard rejection and an appeal takes weeks.
 extension, describe what it reads (Amazon page text) and what leaves the device
 (one derived boolean). A generic site-wide policy gets rejected.
 
-**Overbroad host access.** `https://www.amazon.com/*` covers all of Amazon
-shopping, which is much wider than "FBA seller tool" implies. The product-page
-LOW alert is the honest justification. If review pushes back, the fix is to drop
-to Seller Central only rather than argue — the LOW alert is the least valuable
-feature.
+**Overbroad host access — resolved, keep it that way.** An earlier draft also
+matched `https://www.amazon.com/*`, which covers all of Amazon shopping and is
+far wider than "FBA seller tool" implies. It was dropped on 2026-09-22 when the
+alert it powered proved to fire on Proposition 65 warnings. The extension now
+matches `sellercentral.amazon.com` only, which is trivially defensible. Do not
+widen it again without a feature that genuinely needs it.
 
 **Screenshots that don't show the extension.** Screenshots of Amazon with no
 visible popup or badge get rejected as not depicting the product. All three
@@ -99,14 +100,15 @@ policy cited, fix only that, and reply in the appeal with what changed.
 **Weekly for the first month:**
 - Web Store dashboard: installs, weekly users, uninstall rate. A high uninstall
   rate in week one usually means the alert is either not firing or firing
-  wrongly — correlate against the LOW-alert noise concern in `TESTING.md`.
+  wrongly. A silent extension is the expected steady state for a seller with no
+  CA placement, so read uninstalls alongside whether HIGH ever fired for them.
 - Reviews and support email — reply to every review in week one, including the
   bad ones. Early review sentiment is sticky.
 - Chrome release notes for anything touching MV3 service worker lifecycle or
   `chrome.storage`.
-- GA4 `/trial` landing events split by `alert_level`, to see whether HIGH
-  actually converts better than LOW. If LOW converts near zero, that is the
-  signal to scope the content script to Seller Central only.
+- GA4 `/trial` landing events split by `alert_level`. `high` is the funnel that
+  matters; a meaningful volume of `none` means people are clicking the CTA from
+  a clear popup, which is worth knowing before rewording it.
 
 **Set up before you need it:** a crash/error signal. There is none today —
 service worker exceptions die silently in users' browsers. The cheapest version

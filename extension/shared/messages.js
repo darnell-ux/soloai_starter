@@ -45,18 +45,24 @@ export const RISK = {
 };
 
 /**
- * Alert level — the user-facing severity, derived from which CA signal fired.
+ * Alert level — the user-facing severity.
  *
  *   HIGH  a CA fulfillment-center code (ONT8, SMF1, …) is on the page. The
  *         seller's stock physically sits in California: "doing business" under
  *         R&TC 23101(a) at any sales volume. Decisive.
- *   LOW   California location text only, no FC code — e.g. a product page that
- *         merely ships from / mentions CA. Worth a look, not proof.
- *   NONE  no CA signal at all.
+ *   NONE  no CA inventory signal.
+ *
+ * There was a LOW level for "California text on the page but no FC code". It
+ * was removed on 2026-09-22: tested against real pages it fired on Proposition
+ * 65 chemical warnings ("known to the State of California to cause cancer"),
+ * which appear on a large share of Amazon listings and have nothing to do with
+ * nexus. It was the only reason the extension needed `www.amazon.com` host
+ * access, so dropping it also shrank the permission surface to the one site
+ * the product is actually about. CA *text* is still collected and displayed as
+ * page context — it just no longer raises an alert on its own.
  */
 export const ALERT = {
 	HIGH: 'high',
-	LOW: 'low',
 	NONE: 'none'
 };
 

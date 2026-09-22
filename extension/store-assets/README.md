@@ -8,7 +8,7 @@ PNGs next to this file.
 
 | Asset | Spec | Status |
 |---|---|---|
-| Screenshot 1 — LOW alert | 1280×800 PNG | ☐ to capture |
+| Screenshot 1 — HIGH alert in context (badge + page) | 1280×800 PNG | ☐ to capture |
 | Screenshot 2 — HIGH alert, popup open | 1280×800 PNG | ☐ to capture |
 | Screenshot 3 — clear state | 1280×800 PNG | ☐ to capture |
 | Store icon | 128×128 PNG | ✅ `public/icons/icon128.png` |
@@ -38,14 +38,15 @@ Seller Central. Blur or replace with placeholder text. The FC code itself
 
 ## The three shots
 
-### 1. LOW alert on an Amazon product page
+### 1. HIGH alert in context — the badge on a real page
 
-`www.amazon.com/dp/...` for a product that ships from California. The popup is
-**open**, showing the LOW chip and the "California location text present on
-page" signal line. The point of this shot is that the extension distinguishes a
-hint from proof — it should visibly say LOW, not red-alert a shopper.
+A Seller Central FBA inventory page with the red `!` badge visible in the
+toolbar and the CA fulfillment-center code visible in the page's inventory
+table, **popup closed**. This is the "what you'll actually see while working"
+shot: it shows the alert arriving unprompted, which is the product's entire
+premise.
 
-Frame so the product page is recognizable behind the popup.
+Frame so both the toolbar badge and the FC code in the table are legible.
 
 ### 2. HIGH alert with the popup open
 

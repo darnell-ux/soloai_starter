@@ -64,12 +64,14 @@ SMF1, LAX9, OAK4, SBD1 and the rest of the California network. When one shows
 up, the toolbar icon turns red and the popup tells you plainly what it means:
 your inventory is physically in California, and the nexus clock is running.
 
-You get three states:
+You get two states:
 • HIGH — a California fulfillment-center code is on the page. Physical presence
   confirmed. This is the one that matters.
-• LOW — the page mentions a California location but no FC code. Worth checking,
-  not proof.
-• Clear — no California signal on this page.
+• Clear — no California inventory signal on this page.
+
+The extension deliberately does not alert on pages that merely mention
+California. Only a fulfillment-center code proves where your stock actually
+sits, and an alert you learn to ignore is worse than no alert.
 
 Snooze alerts for 7 days if you have already handled it, or dismiss a single tab
 without silencing the rest.
@@ -162,20 +164,20 @@ literal — reviewers check the claim against the code.
 > identical bundled script; no remote or dynamically generated code is ever
 > executed.
 
-### Host access — `https://www.amazon.com/*`
-
-> Amazon product and listing pages can display California shipped-from and
-> location information. The content script reads the rendered page text to
-> detect that signal and shows a LOW alert. It reads the DOM only and makes no
-> network requests from the page.
-
 ### Host access — `https://sellercentral.amazon.com/*`
 
-> This is the core function. Seller Central FBA inventory and placement pages
-> show the fulfillment-center codes that reveal whether the seller's stock sits
-> in a California warehouse — the fact that triggers California "doing business"
-> status. The content script reads only the rendered text of these pages to
-> find those codes.
+> The extension's single function. Seller Central FBA inventory and placement
+> pages show the fulfillment-center codes that reveal whether the seller's stock
+> sits in a California warehouse — the fact that triggers California "doing
+> business" status. The content script reads only the rendered text of these
+> pages to find those codes. It reads the DOM only and makes no network requests
+> from the page.
+
+This is the **only** host the extension runs on. `https://www.amazon.com/*` was
+requested in an earlier draft and removed before submission — it existed to
+flag pages that merely mentioned California, which in practice matched
+Proposition 65 chemical warnings rather than anything about inventory. Dropping
+it narrowed the extension to the one site its purpose actually requires.
 
 Note: host access is granted declaratively through `content_scripts.matches`
 rather than a `host_permissions` array, which keeps the requested permission set

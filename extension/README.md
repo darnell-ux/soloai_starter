@@ -71,8 +71,19 @@ All state is `chrome.storage.local`; nothing syncs.
 | `last_alert_level` | string | `high` \| `low` \| `none` |
 
 **Alert levels.** A CA fulfillment-center code is proof of physical stock in
-California → `high`. Bare "California" page text is a hint, not proof → `low`.
-Collapsing the two would make every CA-shipped product page a red alert.
+California → `high`. Everything else → `none`.
+
+There was a `low` level for "California text on the page, no FC code". It was
+removed on 2026-09-22 after testing against live pages: it fired on
+**Proposition 65 chemical warnings** ("known to the State of California to
+cause cancer"), which appear on a large share of Amazon listings and say
+nothing about where inventory sits — a colon-cleanse supplement was showing a
+nexus alert. That level was the only reason the extension needed
+`www.amazon.com` host access, so removing it also narrowed
+`content_scripts.matches` to Seller Central alone.
+
+CA *text* is still collected (`signals.hasCaText`) and displayed as page
+context; it simply no longer raises an alert by itself.
 
 **Suppression suppresses the interruption, not the finding.** While snoozed or
 dismissed the badge stays dark, but storage is still written and the popup still
@@ -107,7 +118,7 @@ app, set `API_BASE` in `service-worker.js` to `http://localhost:5173`.
 | 1 | MV3, loads unpacked | ✅ | `manifest.json` `manifest_version: 3`; `npm run build` → load `dist/`; relative asset paths in `dist/index.html` |
 | 2 | Popup UI opens w/o errors | ✅ | `action.default_popup: index.html`; Svelte popup compiled, no top-level throws |
 | 3 | Service worker registered | ✅ | `background.service_worker` + `type: module`; routes all background logic |
-| 4 | Content scripts Amazon-only | ✅ | `content_scripts.matches` = sellercentral + www.amazon.com; collection only, no fetch |
+| 4 | Content scripts Amazon-only | ✅ | `content_scripts.matches` = `sellercentral.amazon.com` only; collection only, no fetch |
 | 5 | API calls via SW only | ✅ | single `fetch(` is `service-worker.js:43`; popup & content script have none (test-enforced) |
 | 6 | Minimal permissions | ✅ | exactly `activeTab, storage, scripting`; each is used (scripting: `executeScript`; storage: `local`; activeTab: rescan) |
 | 7 | Manual test of CA detection | ✅ | `npm test` — 4 cases against the real content script (see below) |

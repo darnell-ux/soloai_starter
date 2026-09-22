@@ -4,7 +4,7 @@ Automated coverage lives in `test/` and runs with `npm test` (node:test, no
 browser). Everything below is what automation does *not* cover.
 
 ```bash
-cd extension && npm test     # 26 tests, must be green before any submission
+cd extension && npm test     # 28 tests, must be green before any submission
 ```
 
 | File | Covers |
@@ -36,8 +36,12 @@ one sitting on one build.
       California FC code (ONT8 / SMF1 / LAX9). Badge turns red `!` within a few
       seconds; popup shows "CA nexus exposure detected" with a HIGH chip and the
       detected code listed under "Signals on this page".
-- [ ] **4. LOW alert fires.** Open an `amazon.com/dp/` product page that mentions
-      a California location with no FC code. Popup shows a LOW chip, not HIGH.
+- [ ] **4. No alert off Seller Central.** Open any `www.amazon.com/dp/` product
+      page — ideally one with a Proposition 65 warning. The extension must do
+      **nothing**: no badge, and the popup shows the last Seller Central result
+      or "No data yet". The content script does not run here at all. (This is a
+      regression check: a CA nexus alert once fired on a supplement listing
+      because of its Prop 65 label.)
 - [ ] **5. Clear state.** Open a Seller Central page with only non-CA codes
       (DFW7, PHX3). No red badge, popup reads "No CA inventory signal".
 - [ ] **6. Dismiss is per-tab.** With two tabs both showing HIGH, dismiss one.
@@ -51,7 +55,7 @@ one sitting on one build.
       `chrome.storage.local.get('snooze_until')` returns a future timestamp.
 - [ ] **9. CTA URL is correct.** Click "Start free trial" from a HIGH alert. Lands
       on `taxnexusapp.com/trial?source=chrome_extension&alert=high` and the page
-      shows the high-alert copy. Repeat from a LOW alert, confirm `alert=low`.
+      shows the high-alert copy. From a clear popup, confirm `alert=none`.
 - [ ] **10. Offline blindside still works.** DevTools → Network → Offline, then
       load a CA inventory page. Badge must **still** turn red — the local FC-code
       detection is decisive without the API. This is the product's core promise;
@@ -115,9 +119,10 @@ silently in production while working fine in a local fixture.
 **Iframes.** The manifest does not set `all_frames`, so the collector runs only
 in the top document. Seller Central renders some inventory widgets in iframes;
 inventory shown only inside one will not be detected. Enabling `all_frames`
-would fix that but would also run the script in every ad and tracking iframe on
-`www.amazon.com` — a real performance and review-surface cost. Current call:
-leave it off, and rely on the main inventory tables which are top-document.
+would fix that but would also run the script in every ad and tracking iframe
+Seller Central embeds — a real performance and review-surface cost. Current
+call: leave it off, and rely on the main inventory tables which are
+top-document.
 
 **Tab id recycling.** Chrome reuses tab ids across sessions. Both the 24h
 `detection_*` sweep and the startup clear of `dismissed_tabs` exist to stop a
@@ -126,11 +131,19 @@ recycled id inheriting an unrelated tab's state. If per-tab state ever looks
 it does not fire on extension reload during development, only on real browser
 startup.
 
-**`www.amazon.com` breadth.** The content script runs on every amazon.com page,
-including shopping pages that have nothing to do with the user's own inventory.
-A product page shipped from California produces a LOW alert that is technically
-correct and contextually useless. If LOW proves noisy in the wild, scope it to
-Seller Central only.
+**Proposition 65 (resolved — do not reintroduce).** The extension used to also
+match `www.amazon.com/*` and raise a LOW alert on any page whose text mentioned
+California. On a real listing (`amazon.com/dp/B08G38VHDW`, 2026-09-22) that
+matched *"WARNING: California's Proposition 65"* — a chemical warning printed on
+a large share of Amazon products — and showed a California nexus alert on a
+dietary supplement.
+
+Both the LOW level and the `www.amazon.com` host match were removed. Only a
+fulfillment-center code raises an alert now. If anyone proposes alerting on page
+text again, this is the counterexample: the phrase "California" on a shopping
+page carries no information about where inventory is stored, and a badge users
+learn to ignore is worse than no badge. `test/detection.test.mjs` and
+`test/service-worker.test.mjs` both carry regression tests using the real string.
 
 ---
 
@@ -145,8 +158,7 @@ Seller Central only.
 - Build:                  (unpacked from dist / Web Store)
 - Chrome version:         (chrome://version)
 - OS:
-- Amazon surface:         (sellercentral.amazon.com / www.amazon.com)
-- Page type:              (FBA inventory / placement / product page / other)
+- Page type:              (FBA inventory / placement / other Seller Central)
 
 ### Steps to reproduce
 1.
@@ -159,7 +171,7 @@ Seller Central only.
 ### Alert state at the time
 - Badge showed:           (red ! / green ✓ / empty)
 - Popup status line:
-- Alert level chip:       (HIGH / LOW / none)
+- Alert level chip:       (HIGH / none)
 - Snoozed?                (yes/no — check storage below)
 - Tab dismissed?          (yes/no)
 

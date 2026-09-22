@@ -72,10 +72,9 @@ test('does NOT flag a non-California page (Texas FC)', () => {
 });
 
 test('reports hasCaInventory and hasCaText as separate booleans', () => {
-  // The service worker derives its alert LEVEL from these two independently:
-  // an FC code is proof of physical CA stock (high), bare CA text is a hint (low).
-  // Collapsing them would make every product page mentioning California a
-  // high alert.
+  // The two must stay distinct: only hasCaInventory (an FC code) is proof that
+  // stock physically sits in California, and only it raises an alert. hasCaText
+  // is page context. Collapsing them is precisely the Prop 65 bug below.
   const withCode = runCollector('Fulfillment Center: ONT8');
   assert.equal(withCode.payload.hasCaInventory, true);
   assert.equal(withCode.payload.hasCaText, false, 'FC code alone is not location text');
@@ -87,6 +86,20 @@ test('reports hasCaInventory and hasCaText as separate booleans', () => {
   const both = runCollector('Fulfillment Center: SMF1 — Sacramento, California 95837');
   assert.equal(both.payload.hasCaInventory, true);
   assert.equal(both.payload.hasCaText, true);
+});
+
+test('a Proposition 65 warning is NOT an inventory signal', () => {
+  // Verbatim from a real listing (amazon.com/dp/B08G38VHDW, 2026-09-22) that
+  // was raising a CA nexus alert on a dietary supplement. The collector may
+  // report the text, but it must never claim CA inventory — the service worker
+  // keys its alert off hasCaInventory alone for exactly this reason.
+  const page = `UMZU zuPOO Colon Cleanse Capsules, 30 Capsules
+    WARNING: California's Proposition 65
+    Ships from Amazon.com  Sold by UMZU`;
+  const msg = runCollector(page);
+
+  assert.equal(msg.payload.hasCaInventory, false, 'Prop 65 is a chemical warning, not inventory');
+  assert.deepEqual(msg.payload.fcCodes, [], 'no fulfillment-center code on the page');
 });
 
 test('emits no network call surface — payload is data only', () => {

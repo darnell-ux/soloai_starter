@@ -24,7 +24,7 @@ const STORAGE = {
   DETECTION_PREFIX: 'detection_'
 };
 const RISK = { EXPOSED: 'exposed', CLEAR: 'clear', UNKNOWN: 'unknown' };
-const ALERT = { HIGH: 'high', LOW: 'low', NONE: 'none' };
+const ALERT = { HIGH: 'high', NONE: 'none' };
 
 /** Snooze silences every alert for 7 days. Persisted, so it survives restart. */
 const SNOOZE_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -86,12 +86,17 @@ function riskFromAssessment(signals, assessment) {
 }
 
 /**
- * Severity shown to the user. An FC code is proof of physical CA stock (HIGH);
- * bare "California" page text is a hint worth checking, not proof (LOW).
+ * Severity shown to the user. Only a CA fulfillment-center code (or an assess
+ * response that says nexus) raises an alert.
+ *
+ * `signals.hasCaText` deliberately does NOT raise one. It used to, as a "LOW"
+ * level, until real-page testing showed it firing on Proposition 65 chemical
+ * warnings — which mention California on a large share of Amazon listings and
+ * say nothing about where inventory sits. The text is still collected and
+ * shown as page context; it just isn't an alert by itself.
  */
 function alertLevelFor(signals, risk) {
   if (signals.hasCaInventory || risk === RISK.EXPOSED) return ALERT.HIGH;
-  if (signals.hasCaText) return ALERT.LOW;
   return ALERT.NONE;
 }
 
@@ -197,7 +202,8 @@ async function rescanActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.id) return { ok: false, reason: 'no_active_tab' };
 
-  const onAmazon = /^https:\/\/(www|sellercentral)\.amazon\.com\//.test(tab.url || '');
+  // Must mirror content_scripts.matches in the manifest — Seller Central only.
+  const onAmazon = /^https:\/\/sellercentral\.amazon\.com\//.test(tab.url || '');
   if (!onAmazon) return { ok: false, reason: 'not_amazon' };
 
   // A re-scan is a deliberate user action, so it un-dismisses this tab.
