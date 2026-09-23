@@ -40,6 +40,30 @@ const TRIAL_URL = `${APP_BASE}/trial`;
 const trialUrl = (alertLevel) =>
   `${TRIAL_URL}?source=chrome_extension&alert=${encodeURIComponent(alertLevel || ALERT.NONE)}`;
 
+// Where Chrome sends the user when they uninstall. This is the ONLY churn
+// signal available to a zero-telemetry extension: we never learn about
+// installs, activations or detections, so without it an uninstall is entirely
+// invisible and there is no way to ask what went wrong.
+//
+// It does NOT make the extension network-connected. Nothing is sent from here;
+// Chrome navigates a tab after the user clicks Uninstall, which is a user
+// action on their own machine. No identifier is attached — the page cannot tell
+// one uninstaller from another, which is deliberate.
+const UNINSTALL_URL = `${APP_BASE}/uninstall?source=chrome_extension`;
+
+/**
+ * Register the uninstall page. Set on install/update AND on browser startup:
+ * the value persists per-profile once set, but a single failed call would
+ * otherwise never be retried, silently costing the only signal we have.
+ */
+function registerUninstallUrl() {
+  try {
+    chrome.runtime.setUninstallURL(UNINSTALL_URL, () => void chrome.runtime.lastError);
+  } catch (err) {
+    console.debug('[TaxNexus] could not set uninstall URL:', err);
+  }
+}
+
 // --- assessment (fully local) ------------------------------------------------
 //
 // This used to POST to /api/taxnexus/assess. It no longer makes ANY network
@@ -305,9 +329,13 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 // Clear any stale badge on install/startup.
-chrome.runtime.onInstalled.addListener(() => chrome.action.setBadgeText({ text: '' }));
+chrome.runtime.onInstalled.addListener(() => {
+  registerUninstallUrl();
+  void chrome.action.setBadgeText({ text: '' });
+});
 
 chrome.runtime.onStartup.addListener(() => {
+  registerUninstallUrl();
   void (async () => {
     await chrome.action.setBadgeText({ text: '' });
     await cleanupStaleDetections();

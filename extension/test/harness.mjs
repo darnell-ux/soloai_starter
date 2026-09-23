@@ -47,8 +47,10 @@ export function loadWorker(seed = {}, opts = {}) {
 	let onMessage = null;
 	let onRemoved = null;
 	let onStartup = null;
+	let onInstalled = null;
 	const store = { ...seed };
 	const fetchCalls = [];
+	const uninstallUrls = [];
 
 	// Badge state is tracked per tab as well as globally, because suppression
 	// (snooze / dismiss) is precisely a question of which tabs got a badge.
@@ -90,7 +92,15 @@ export function loadWorker(seed = {}, opts = {}) {
 						onMessage = fn;
 					}
 				},
-				onInstalled: { addListener() {} },
+				onInstalled: {
+					addListener: (fn) => {
+						onInstalled = fn;
+					}
+				},
+				setUninstallURL: (url, cb) => {
+					uninstallUrls.push(url);
+					if (cb) cb();
+				},
 				onStartup: {
 					addListener: (fn) => {
 						onStartup = fn;
@@ -164,7 +174,24 @@ export function loadWorker(seed = {}, opts = {}) {
 		await flush();
 	};
 
-	return { send, sendPageSignals, closeTab, fireStartup, store, badge, fetchCalls };
+	/** Run the chrome.runtime.onInstalled handler (fresh install / update). */
+	const fireInstalled = async () => {
+		assert.ok(onInstalled, 'service worker registered a runtime.onInstalled listener');
+		onInstalled({ reason: 'install' });
+		await flush();
+	};
+
+	return {
+		send,
+		sendPageSignals,
+		closeTab,
+		fireStartup,
+		fireInstalled,
+		store,
+		badge,
+		fetchCalls,
+		uninstallUrls
+	};
 }
 
 /**

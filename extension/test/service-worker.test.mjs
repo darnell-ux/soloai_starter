@@ -229,3 +229,34 @@ test('a clear page still reads CLEAR with no network, not "no data yet"', async 
 	assert.equal(record.risk, 'clear');
 	assert.equal(w.badge.byTab[TAB].text, '✓');
 });
+
+// --- uninstall URL -----------------------------------------------------------
+// The extension is deliberately zero-telemetry: no install, activation or
+// detection signal ever reaches us. An uninstall is therefore the ONLY
+// lifecycle event we can observe, and only because Chrome opens a tab for it.
+
+test('registers an uninstall URL on install and on startup', async () => {
+	const w = loadWorker();
+
+	await w.fireInstalled();
+	assert.equal(w.uninstallUrls.length, 1, 'set exactly once on install');
+	assert.equal(
+		w.uninstallUrls[0],
+		'https://taxnexusapp.com/uninstall?source=chrome_extension',
+		'points at a real route, attributed, with no identifier attached'
+	);
+
+	// Registered again on startup: the value persists per-profile once set, but a
+	// single failed call would otherwise never be retried.
+	await w.fireStartup();
+	assert.equal(w.uninstallUrls.length, 2);
+	assert.equal(w.uninstallUrls[1], w.uninstallUrls[0]);
+});
+
+test('registering the uninstall URL is not a network request', async () => {
+	// setUninstallURL hands a string to Chrome; the browser navigates only after
+	// the user clicks Uninstall. The extension itself still never fetches.
+	const w = loadWorker();
+	await w.fireInstalled();
+	assert.deepEqual(w.fetchCalls, []);
+});

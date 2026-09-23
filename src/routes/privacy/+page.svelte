@@ -7,11 +7,15 @@
 	// application actually does today (analytics, consent, processors). It is not
 	// legal advice — have counsel review before launch. Legal text is intentionally
 	// in English; professional translation is a separate step from UI localization.
-	// Bumped 2026-09-22 per §11 ("material changes will be reflected by the
-	// Effective date"): the browser extension stopped making network requests
-	// entirely, so its data handling is now described separately from the
-	// site's assessment inputs. The change narrows what we collect.
-	const effectiveDate = 'September 22, 2026';
+	// Bumped per §11 ("material changes will be reflected by the Effective
+	// date").
+	//   2026-09-22 — the browser extension stopped making network requests
+	//     entirely, so its data handling is described separately from the
+	//     site's assessment inputs. Narrowed what we collect.
+	//   2026-09-23 — the extension now registers an uninstall feedback page,
+	//     so uninstalling opens a page here. No identifier is attached, but it
+	//     is a new (user-initiated) contact with this site and is disclosed.
+	const effectiveDate = 'September 23, 2026';
 	const contactEmail = 'privacy@taxnexusapp.com';
 </script>
 
@@ -48,8 +52,11 @@
 			It makes <strong>no network requests of any kind</strong>: the detection runs entirely inside
 			your browser, and nothing it reads or derives is transmitted to us or to anyone else. Its
 			state is kept in local browser storage on your device and is removed when you uninstall it.
-			<strong>We receive no data from the extension.</strong> The only time it contacts this site
-			is when you yourself click its link to open a page here.
+			<strong>We receive no data from the extension.</strong> Two actions you take yourself
+			open a page on this site: clicking the extension's trial link, and uninstalling it —
+			Chrome opens a short feedback page so we can ask what went wrong. Neither carries an
+			identifier, so those page views cannot be linked to you or to each other. Like any web
+			page, they are subject to the analytics described in §1 and §3.
 		</li>
 		<li>
 			<strong>Usage &amp; product analytics.</strong> With your consent where required, we use Google

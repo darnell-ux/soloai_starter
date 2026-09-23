@@ -87,9 +87,12 @@ kind. It never sees a page you do not open yourself.
 The extension makes no network requests at all. Not a minimal set — none. It
 does not phone home, does not check in, and does not send a single byte
 anywhere. Every check runs inside your browser, and everything it remembers is
-kept in local browser storage that is deleted when you uninstall. The only time
-anything leaves your machine is when you yourself click the "Start free trial"
-link, which opens a normal web page.
+kept in local browser storage that is deleted when you uninstall.
+
+Two things open a web page, and both are actions you take yourself: clicking
+"Start free trial", and uninstalling — Chrome opens a short feedback page so we
+can ask what went wrong. Neither carries an identifier; the pages cannot tell
+one visitor from another.
 
 A practical consequence: it keeps working with no connection at all. If your
 inventory page loads, the alert fires.

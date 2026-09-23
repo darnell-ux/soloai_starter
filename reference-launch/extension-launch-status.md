@@ -24,7 +24,7 @@ the toolbar badge turn red? See "Verified against real Seller Central".
 | Item | State |
 |---|---|
 | Extension builds, loads unpacked, no errors | ✅ verified in Chrome |
-| Automated tests | ✅ 48 unit + 4 E2E, all green |
+| Automated tests | ✅ 50 unit + 4 E2E, all green |
 | Permissions minimal and defensible | ✅ `activeTab, storage, scripting`; one host |
 | Zero network requests | ✅ test-enforced and verified in the shipped build |
 | Icons | ✅ real artwork, two treatments |
@@ -366,6 +366,54 @@ there is no exfiltration path left to get wrong.
 Limitations: static review of one diff range. Does not cover pre-existing code,
 the Docker/nginx/VPS configuration, or dependency supply chain, and no runtime
 exploitation was attempted.
+
+---
+
+## Growth / business-model fit
+
+Reviewed 2026-09-23 against a data-capture / contextual-widget / lead-gen
+framework. The honest result: **that framework describes a different extension**,
+and several of its central recommendations we declined deliberately.
+
+| Framework recommendation | Our position |
+|---|---|
+| Capture signals, sync to Strapi/MySQL | **Declined.** All egress removed 2026-09-22 — it made every data disclosure an unambiguous "No" and made the alert work offline. |
+| Inject a Svelte widget into the host page | **Declined.** We read the DOM and never write to it. Seller Central's CSP, 89 shadow hosts and the review surface make injection a poor trade. |
+| Install as a Mautic lead event | **Not built.** Mautic runs in the stack (26 refs in `docker-compose.yml`); the extension is not connected to it. |
+| Freemium split | **Aligned.** Free = the blindside alert; paid = the full audit, penalties and entity comparison in the app. The extension is an on-ramp, not a competitor, and it does not gate the moment that creates urgency. |
+| Affiliate / referral links | **Rejected, not deferred.** An extension that warns sellers about tax liability and also surfaces referral links corrodes the credibility the product runs on. |
+| Minimum permissions, consent, disclosure | **Exceeds it.** Three permissions, one host, zero egress, local-only storage, user controls, policy kept in step. |
+
+### The real gap: no funnel visibility
+
+There is no install, activation, or detection signal. The only telemetry is the
+tail end — `trial_landing_view` and `trial_signup_click` on `/trial`, tagged
+with `source` and `alert_level`. After launch, "is this working in the wild?"
+is currently unanswerable.
+
+The tension is genuine: adding telemetry reopens the "Website content"
+disclosure that was closed on 2026-09-22 and weakens the
+"makes no network requests" claim, which is a competitive strength in the
+listing. Three ways to get signal without spending that:
+
+1. **Uninstall URL — done 2026-09-23.** `chrome.runtime.setUninstallURL` points
+   at `taxnexusapp.com/uninstall?source=chrome_extension`. No permission needed
+   and the extension still makes no request — Chrome navigates a tab after the
+   user clicks Uninstall. No identifier is attached, so uninstalls cannot be
+   linked to each other or to a person. The page fires an `extension_uninstall`
+   GA4 event and asks which of four things went wrong; the first option is "it
+   never alerted me, even though I have CA inventory", because that would be a
+   detection bug, not a preference.
+2. **Web Store dashboard** — installs, weekly users, uninstall rate. Free, no
+   code. Already in `LAUNCH-CHECKLIST.md`'s monitoring plan.
+3. **Opt-in telemetry, off by default** — a v1.1 decision, not a launch one.
+   Worth revisiting only *after* detection is confirmed on real inventory; if
+   detection does not work, funnel metrics measure nothing.
+
+Both the store listing and the privacy policy were corrected when the uninstall
+URL landed — each previously claimed the trial CTA was the *only* thing that
+opens a page. Privacy policy effective date bumped to 2026-09-23 per its own
+§11.
 
 ---
 
