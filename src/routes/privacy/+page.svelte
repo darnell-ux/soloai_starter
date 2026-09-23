@@ -7,7 +7,11 @@
 	// application actually does today (analytics, consent, processors). It is not
 	// legal advice — have counsel review before launch. Legal text is intentionally
 	// in English; professional translation is a separate step from UI localization.
-	const effectiveDate = 'July 18, 2026';
+	// Bumped 2026-09-22 per §11 ("material changes will be reflected by the
+	// Effective date"): the browser extension stopped making network requests
+	// entirely, so its data handling is now described separately from the
+	// site's assessment inputs. The change narrows what we collect.
+	const effectiveDate = 'September 22, 2026';
 	const contactEmail = 'privacy@taxnexusapp.com';
 </script>
 
@@ -34,10 +38,18 @@
 			address (via our authentication system) and, for subscribers, a billing status.
 		</li>
 		<li>
-			<strong>Nexus assessment inputs.</strong> Figures you enter (or that our browser extension
-			detects on Amazon, such as fulfillment-center presence) are used to compute an exposure
-			estimate. The assessment endpoint is stateless: these inputs are <strong>not stored</strong>
-			and are <strong>never written to our logs</strong>.
+			<strong>Nexus assessment inputs.</strong> Figures you enter on this site are used to compute
+			an exposure estimate. The assessment endpoint is stateless: these inputs are
+			<strong>not stored</strong> and are <strong>never written to our logs</strong>.
+		</li>
+		<li>
+			<strong>Browser extension.</strong> The TaxNexus Nexus Alert extension reads the Amazon
+			Seller Central page you are viewing in order to detect California fulfillment-center codes.
+			It makes <strong>no network requests of any kind</strong>: the detection runs entirely inside
+			your browser, and nothing it reads or derives is transmitted to us or to anyone else. Its
+			state is kept in local browser storage on your device and is removed when you uninstall it.
+			<strong>We receive no data from the extension.</strong> The only time it contacts this site
+			is when you yourself click its link to open a page here.
 		</li>
 		<li>
 			<strong>Usage &amp; product analytics.</strong> With your consent where required, we use Google
