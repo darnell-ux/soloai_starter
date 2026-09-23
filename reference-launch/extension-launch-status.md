@@ -19,7 +19,7 @@ submission-ready.
 | Item | State |
 |---|---|
 | Extension builds, loads unpacked, no errors | ✅ verified in Chrome |
-| Automated tests | ✅ 35/35 green |
+| Automated tests | ✅ 38/38 green |
 | Permissions minimal and defensible | ✅ `activeTab, storage, scripting`; one host |
 | Zero network requests | ✅ test-enforced and verified in the shipped build |
 | Icons | ✅ real artwork, two treatments |
@@ -195,16 +195,50 @@ is kept because the endpoint is public either way. Removing that branch of
 
 ---
 
+## Offline blindside — partially verified
+
+The product's core promise: a seller whose stock sits in a California warehouse
+gets warned, connection or no connection. Status as of 2026-09-22:
+
+**Proven automatically (3 tests).** The service worker is instantiated with
+`fetch` *deleted from the sandbox*, so referencing it at all is a
+`ReferenceError`. This is stricter than simulating a failed request — a
+`try/catch` around a network call could not satisfy it, only genuinely not
+having one.
+
+- the HIGH alert fires with no network stack present, and the assessment is
+  **complete** (`$800` + the trigger string), not degraded — a red badge with a
+  hollow result would be a worse failure than no badge
+- snooze, dismiss, re-scan, get-state, tab close and startup cleanup all
+  survive too. The realistic failure is a connection dropping mid-session, not
+  a cold start, so the alert path alone is not enough
+- a clear page reads CLEAR rather than "no data yet" — the behaviour that
+  changed when the assess call was removed
+
+**Still needs a real browser and a real page.** The automated version proves the
+*code* has no network dependency. It cannot prove Chrome behaves as expected
+with the network toggle off, and it cannot scan a real Seller Central page.
+That remains manual checklist item 11.
+
+**The item 11 procedure was wrong and has been corrected.** It previously read
+"go offline, *then* load a CA inventory page" — but offline first means Seller
+Central never loads, so there is no page to scan and the extension looks broken
+for a reason unrelated to it. Anyone running it as written would have recorded
+a false failure. The corrected sequence: load online → confirm the badge →
+`chrome.storage.local.clear()` → go offline → **Re-scan this page** → badge must
+turn red with a complete result. This also matches the realistic scenario.
+
+---
+
 ## Next steps
 
 1. **Get a pilot seller to take the three screenshots.** The only blocker. Send
    the request in `extension/store-assets/README.md`, then run
    `node store-assets/verify-screenshots.mjs`.
 2. **Run the manual checklist in `extension/TESTING.md`** against a real Seller
-   Central account — 11 items. Two that have never been exercised on a real
-   page: item 4 (SPA navigation) and item 11 (offline blindside). **Item 11 is
-   the one to refuse to ship without** — it is the product's core promise, and
-   it is now unconditional since there is no network call left to fail.
+   Central account — 11 items. Two have never been exercised on a real page:
+   item 4 (SPA navigation) and item 11 (offline blindside). See "Offline
+   blindside" below for what is already proven and what those two still need.
 3. **Work `extension/LAUNCH-CHECKLIST.md` top to bottom**, then submit.
 4. After approval: add the reverse CTA (an "Install the free Chrome alert"
    link on the TaxNexus homepage and `/taxnexus`). Cheapest item on the
