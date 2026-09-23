@@ -4,7 +4,7 @@ Automated coverage lives in `test/` and runs with `npm test` (node:test, no
 browser). Everything below is what automation does *not* cover.
 
 ```bash
-cd extension && npm test     # 43 tests, must be green before any submission
+cd extension && npm test     # 48 tests, must be green before any submission
 ```
 
 | File | Covers |
@@ -219,6 +219,31 @@ Two implementation notes worth keeping in mind before anyone "simplifies" this:
 If detections are missed after navigation, check the poll is still running
 (`setInterval` survives, but an exception thrown inside `checkForNavigation`
 would kill it) before suspecting the detector.
+
+**Shadow DOM (handled — do not revert to plain innerText).** Seller Central is
+built from web components, and `document.body.innerText` stops at every shadow
+boundary. Measured on a real FBA inventory page (logged in, empty inventory,
+2026-09-22): shallow `1284` chars, full `2668` — **52% of the page text was
+invisible** to a plain innerText read. On a populated page the inventory table
+is among that, so the extension would have found nothing on a page visibly
+showing an FC code.
+
+`collectText()` in `amazon-collector.js` now walks open shadow roots
+recursively, depth-capped at 10 and sharing the 200k character budget. Closed
+shadow roots remain unreadable — nothing an extension can do about those — and
+the page's 5 iframes are still out of scope (`all_frames` is off).
+
+To re-measure on any page, in that page's console:
+
+```js
+const deep = (n, d = 0) => {
+  if (d > 10) return '';
+  let s = n.innerText ?? [...(n.children || [])].map(c => c.innerText || '').join('\n');
+  for (const el of n.querySelectorAll('*')) if (el.shadowRoot) s += '\n' + deep(el.shadowRoot, d + 1);
+  return s;
+};
+console.log({ shallow: document.body.innerText.length, full: deep(document.body).length });
+```
 
 **CSP restrictions.** Amazon serves a strict Content-Security-Policy. It does not
 block content scripts (they run in an isolated world), but it does block any

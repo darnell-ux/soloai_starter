@@ -38,13 +38,56 @@
   // Plain-language CA location mentions on inventory/placement pages.
   const CA_TEXT_REGEX = /\b(california|,\s*CA\b|\bCA\s+9\d{4})\b/i;
 
+  // Cap the scanned text so a huge DOM can't blow up the regex pass.
+  const MAX_TEXT = 200000;
+  // Shadow trees nest. Bound the walk so a pathological page cannot hang the
+  // collector; 10 is far deeper than any real component hierarchy.
+  const MAX_SHADOW_DEPTH = 10;
+
+  /**
+   * Rendered page text, INCLUDING open shadow roots.
+   *
+   * `document.body.innerText` stops at every shadow boundary, and Seller
+   * Central is built out of web components. Measured on a real FBA inventory
+   * page (2026-09-22, logged in, empty inventory): 1,384 of 2,668 characters of
+   * page text — 52% — sat inside shadow roots and were invisible to a plain
+   * innerText read. On a populated page the inventory table is among them,
+   * which is exactly where fulfillment-center codes appear. Reading only the
+   * light DOM would mean finding nothing on a page that visibly shows ONT8.
+   *
+   * Content scripts CAN read open shadow roots, so walk them. Closed roots stay
+   * invisible — nothing an extension can do about those.
+   */
+  function collectText(root, depth) {
+    if (depth > MAX_SHADOW_DEPTH) return '';
+    let out = '';
+    try {
+      if (typeof root.innerText === 'string') {
+        // An Element: innerText already covers its light-DOM subtree.
+        out += root.innerText;
+      } else {
+        // A ShadowRoot has no innerText of its own; read its element children.
+        for (const child of root.children || []) out += (child.innerText || '') + '\n';
+      }
+
+      const all = root.querySelectorAll ? root.querySelectorAll('*') : [];
+      for (const el of all) {
+        if (el.shadowRoot) out += '\n' + collectText(el.shadowRoot, depth + 1);
+        if (out.length > MAX_TEXT) break;
+      }
+    } catch (err) {
+      // A single unreadable node must not lose the whole page.
+      console.debug('[TaxNexus] shadow walk skipped a node:', err);
+    }
+    return out;
+  }
+
   /**
    * Inspect the rendered page for California inventory signals.
    * Returns a serialisable payload; performs no network activity.
    */
   function collectSignals() {
-    // Cap the scanned text so a huge DOM can't blow up the regex pass.
-    const text = (document.body?.innerText || '').slice(0, 200000);
+    const text = collectText(document.body, 0).slice(0, MAX_TEXT);
 
     const fcMatches = Array.from(new Set(text.match(CA_FC_REGEX) || []));
     const hasCaText = CA_TEXT_REGEX.test(text);

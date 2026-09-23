@@ -216,15 +216,31 @@ export function loadCollector(innerText, opts = {}) {
 	let pollFn = null;
 	let onMessageFn = null;
 
-	const page = { text: innerText };
+	const page = { text: innerText, shadow: opts.shadow ?? [] };
 	const location = { host, pathname, href: `https://${host}${pathname}` };
+
+	/**
+	 * Elements carrying an open shadow root, as the collector's walk expects to
+	 * find them. Seller Central is built from web components, so this is not a
+	 * hypothetical shape — see the note in amazon-collector.js.
+	 */
+	const shadowHosts = () =>
+		page.shadow.map((text) => ({
+			shadowRoot: {
+				children: [{ innerText: text }],
+				querySelectorAll: () => []
+			}
+		}));
 
 	const sandbox = {
 		// A getter so the script re-reads page text on every collection, the way a
 		// real DOM would after an SPA swaps the view.
 		document: {
 			get body() {
-				return { innerText: page.text };
+				return {
+					innerText: page.text,
+					querySelectorAll: () => shadowHosts()
+				};
 			}
 		},
 		location,
@@ -277,6 +293,10 @@ export function loadCollector(innerText, opts = {}) {
 		/** Change the rendered text without navigating. */
 		setText(newText) {
 			page.text = newText;
+		},
+		/** Replace the text living inside open shadow roots. */
+		setShadow(texts) {
+			page.shadow = texts;
 		},
 		/** Change the URL and text WITHOUT running a poll tick. */
 		setUrl(newPath, newText) {

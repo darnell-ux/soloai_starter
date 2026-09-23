@@ -134,7 +134,7 @@ both duplicated values.
 | 4 | Content scripts Amazon-only | ✅ | `content_scripts.matches` = `sellercentral.amazon.com` only; collection only, no fetch |
 | 5 | API calls via SW only | ✅ | vacuously — there are **no** network calls anywhere. Test-enforced: the harness `fetch` throws if called, and the Vite modulepreload polyfill is disabled so the popup bundle is literally clean |
 | 6 | Minimal permissions | ✅ | exactly `activeTab, storage, scripting`; each is used (scripting: `executeScript`; storage: `local`; activeTab: rescan) |
-| 7 | Manual test of CA detection | ✅ | `npm test` — 43 cases against the real shipped files (see below) |
+| 7 | Manual test of CA detection | ✅ | `npm test` — 48 cases against the real shipped files (see below) |
 | 8 | One flow flagged for E2E | ✅ | see "E2E candidate" below |
 
 ## Manual test record (#7) — CA warehouse detection flow
@@ -149,11 +149,12 @@ with fixture Seller Central markup and asserts the message it emits:
 - ✅ `hasCaInventory` and `hasCaText` are reported as independent booleans
 - ✅ a Proposition 65 warning is **not** treated as an inventory signal
 - ✅ an SPA route change (Orders → FBA Inventory, no document load) re-collects
+- ✅ an FC code that exists **only** inside an open shadow root is still found
 - ✅ unchanged pages do not re-report; an explicit re-scan always does
 - ✅ a full session makes **zero** network requests (harness `fetch` throws)
 - ✅ the HIGH alert still fires with `fetch` absent from the environment entirely
 
-Run: `npm test` → `tests 43 / pass 43 / fail 0` across detection, SPA
+Run: `npm test` → `tests 48 / pass 48 / fail 0` across detection, SPA
 navigation, service-worker decisions, storage state, and an integration pass
 that wires the real content script to the real service worker.
 

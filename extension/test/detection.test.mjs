@@ -185,3 +185,58 @@ test('an explicit Re-scan reports even when nothing changed', () => {
   assert.equal(s.sent.length, 2, 'forced re-scan always reports');
   assert.equal(s.last().payload.hasCaInventory, true);
 });
+
+// --- shadow DOM --------------------------------------------------------------
+// Seller Central is built from web components and document.body.innerText stops
+// at every shadow boundary. Measured on a real FBA inventory page (logged in,
+// empty inventory, 2026-09-22): shallow 1284 chars, full 2668, so 1384 — 52% of
+// the page text — was invisible to a plain innerText read. On a populated page
+// the inventory table is among that, which is where FC codes live.
+
+test('finds an FC code that exists ONLY inside an open shadow root', () => {
+  // The regression that matters: light DOM says nothing, the component says ONT8.
+  const msg = loadCollector('FBA Inventory  Filters  Page preferences', {
+    shadow: ['SKU GADGET-01  Fulfillment Center: ONT8  Units: 240']
+  }).last();
+
+  assert.equal(msg.payload.hasCaInventory, true, 'shadow content must be scanned');
+  assert.deepEqual(msg.payload.fcCodes, ['ONT8']);
+});
+
+test('merges light-DOM and shadow text rather than replacing one with the other', () => {
+  const msg = loadCollector('Fulfillment Center: SMF1', {
+    shadow: ['Fulfillment Center: ONT8']
+  }).last();
+
+  assert.equal(msg.payload.hasCaInventory, true);
+  assert.deepEqual(msg.payload.fcCodes.sort(), ['ONT8', 'SMF1'], 'both sources contribute');
+});
+
+test('a non-CA code in shadow DOM still does not flag', () => {
+  // Piercing shadow roots must not become a source of false positives.
+  const msg = loadCollector('FBA Inventory', {
+    shadow: ['Fulfillment Center: DFW7  Coppell, TX 75019']
+  }).last();
+
+  assert.equal(msg.payload.hasCaInventory, false);
+  assert.deepEqual(msg.payload.fcCodes, []);
+});
+
+test('a page with no shadow roots still works exactly as before', () => {
+  const msg = loadCollector('Fulfillment Center: LAX9', { shadow: [] }).last();
+  assert.equal(msg.payload.hasCaInventory, true);
+  assert.deepEqual(msg.payload.fcCodes, ['LAX9']);
+});
+
+test('shadow content is re-read on SPA navigation, not cached from first load', () => {
+  // The collector reads the DOM fresh each pass; if it cached the shadow walk,
+  // navigating into the inventory view would report the previous view's text.
+  const s = loadCollector('Orders', { pathname: '/orders', shadow: ['nothing here'] });
+  assert.equal(s.last().payload.hasCaInventory, false);
+
+  s.setShadow(['Fulfillment Center: SMF1  Units: 88']);
+  s.navigate('/inventory/fba', 'FBA Inventory');
+
+  assert.equal(s.last().payload.hasCaInventory, true);
+  assert.deepEqual(s.last().payload.fcCodes, ['SMF1']);
+});
