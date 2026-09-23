@@ -53,6 +53,7 @@ unpacked** → select **`extension/dist`**.
 | `test/detection.test.mjs` | Real content script: detection + SPA navigation |
 | `test/service-worker.test.mjs` | Assess → risk → alert level → badge decisions |
 | `test/storage.test.mjs` | Snooze, per-tab dismiss, stale-key cleanup |
+| `test/spa-integration.test.mjs` | Content script ↔ service worker across the seam |
 | `TESTING.md` | Manual checklist, E2E targets, edge cases, bug template |
 | `store-listing.md` | Chrome Web Store copy + permission justifications |
 | `LAUNCH-CHECKLIST.md` | Pre-submission gate and distribution plan |
@@ -133,7 +134,7 @@ both duplicated values.
 | 4 | Content scripts Amazon-only | ✅ | `content_scripts.matches` = `sellercentral.amazon.com` only; collection only, no fetch |
 | 5 | API calls via SW only | ✅ | vacuously — there are **no** network calls anywhere. Test-enforced: the harness `fetch` throws if called, and the Vite modulepreload polyfill is disabled so the popup bundle is literally clean |
 | 6 | Minimal permissions | ✅ | exactly `activeTab, storage, scripting`; each is used (scripting: `executeScript`; storage: `local`; activeTab: rescan) |
-| 7 | Manual test of CA detection | ✅ | `npm test` — 38 cases against the real shipped files (see below) |
+| 7 | Manual test of CA detection | ✅ | `npm test` — 43 cases against the real shipped files (see below) |
 | 8 | One flow flagged for E2E | ✅ | see "E2E candidate" below |
 
 ## Manual test record (#7) — CA warehouse detection flow
@@ -152,8 +153,9 @@ with fixture Seller Central markup and asserts the message it emits:
 - ✅ a full session makes **zero** network requests (harness `fetch` throws)
 - ✅ the HIGH alert still fires with `fetch` absent from the environment entirely
 
-Run: `npm test` → `tests 38 / pass 38 / fail 0` across detection, SPA
-navigation, service-worker decisions, and storage state.
+Run: `npm test` → `tests 43 / pass 43 / fail 0` across detection, SPA
+navigation, service-worker decisions, storage state, and an integration pass
+that wires the real content script to the real service worker.
 
 This is logic-level verification. It does **not** drive a real browser, render
 the popup, or exercise the live `/api/taxnexus/assess` round trip — which is

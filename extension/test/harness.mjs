@@ -15,6 +15,11 @@ const SCRIPT = readFileSync(
 	'utf8'
 );
 
+const COLLECTOR = readFileSync(
+	resolve(import.meta.dirname, '../public/content/amazon-collector.js'),
+	'utf8'
+);
+
 export const STORAGE_KEY = 'taxnexus.latest';
 export const SNOOZE_KEY = 'snooze_until';
 export const DISMISSED_KEY = 'dismissed_tabs';
@@ -184,5 +189,106 @@ export function detectionRecord(tabId, ageMs, now = Date.now()) {
 	return {
 		key: `${DETECTION_PREFIX}${tabId}`,
 		value: { tabId, risk: 'exposed', alertLevel: 'high', storedAt: now - ageMs }
+	};
+}
+
+/**
+ * Boot the ACTUAL shipped content script against a fixture page, with handles
+ * to drive it afterwards: SPA navigation, the poll tick, window events, and a
+ * direct COLLECT_NOW message.
+ *
+ * Timers are captured rather than real — setTimeout fires immediately (the
+ * settle delay is not what any test is asserting) and setInterval hands back
+ * its callback so a test can tick deterministically.
+ *
+ * Pass `onSend` to forward each emitted message somewhere — that is how the
+ * integration test wires this to a real service worker.
+ *
+ * @param {string} innerText  rendered page text
+ * @param {object} [opts]     { host, pathname, onSend }
+ */
+export function loadCollector(innerText, opts = {}) {
+	const host = opts.host ?? 'sellercentral.amazon.com';
+	const pathname = opts.pathname ?? '/inventory/fba';
+
+	const sent = [];
+	const listeners = {};
+	let pollFn = null;
+	let onMessageFn = null;
+
+	const page = { text: innerText };
+	const location = { host, pathname, href: `https://${host}${pathname}` };
+
+	const sandbox = {
+		// A getter so the script re-reads page text on every collection, the way a
+		// real DOM would after an SPA swaps the view.
+		document: {
+			get body() {
+				return { innerText: page.text };
+			}
+		},
+		location,
+		console: { debug() {}, warn() {}, log() {} },
+		Date,
+		Set,
+		RegExp,
+		Array,
+		setTimeout: (fn) => {
+			fn();
+			return 1;
+		},
+		clearTimeout: () => {},
+		setInterval: (fn) => {
+			pollFn = fn;
+			return 1;
+		},
+		addEventListener: (type, fn) => {
+			listeners[type] = fn;
+		},
+		chrome: {
+			runtime: {
+				lastError: undefined,
+				sendMessage: (msg, cb) => {
+					sent.push(msg);
+					opts.onSend?.(msg);
+					if (cb) cb();
+				},
+				onMessage: {
+					addListener: (fn) => {
+						onMessageFn = fn;
+					}
+				}
+			}
+		}
+	};
+
+	vm.runInNewContext(COLLECTOR, sandbox);
+
+	return {
+		sent,
+		last: () => sent[sent.length - 1],
+		/** Simulate an SPA route change, then let the poll notice it. */
+		navigate(newPath, newText) {
+			location.pathname = newPath;
+			location.href = `https://${host}${newPath}`;
+			if (newText !== undefined) page.text = newText;
+			pollFn?.();
+		},
+		/** Change the rendered text without navigating. */
+		setText(newText) {
+			page.text = newText;
+		},
+		/** Change the URL and text WITHOUT running a poll tick. */
+		setUrl(newPath, newText) {
+			location.pathname = newPath;
+			location.href = `https://${host}${newPath}`;
+			if (newText !== undefined) page.text = newText;
+		},
+		/** Run one poll tick. */
+		tick: () => pollFn?.(),
+		/** Fire a listener the script registered on window. */
+		fire: (type) => listeners[type]?.(),
+		/** Deliver a COLLECT_NOW message the way the service worker would. */
+		collectNow: () => onMessageFn?.({ type: 'taxnexus/collect-now' }, {}, () => {})
 	};
 }

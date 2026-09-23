@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import vm from 'node:vm';
+import { loadCollector } from './harness.mjs';
 
 const SCRIPT = readFileSync(
   resolve(import.meta.dirname, '../public/content/amazon-collector.js'),
@@ -16,95 +16,12 @@ const SCRIPT = readFileSync(
 );
 
 /**
- * Boot the content script against a fixture page and keep the handles needed
- * to drive it afterwards — SPA navigation, the poll tick, and a direct
- * COLLECT_NOW message.
- *
- * Timers are captured rather than real: setTimeout fires immediately (the
- * settle delay is not what we're testing) and setInterval hands back its
- * callback so a test can tick it deterministically.
+ * Thin positional wrapper over the shared collector harness (harness.mjs), so
+ * there is exactly one implementation of the content-script sandbox — this file
+ * and spa-integration.test.mjs drive the same code.
  */
-function startCollector(innerText, host = 'sellercentral.amazon.com', pathname = '/inventory/fba') {
-  const sent = [];
-  const listeners = {};
-  let pollFn = null;
-  let onMessageFn = null;
-
-  const page = { text: innerText };
-  const location = { host, pathname, href: `https://${host}${pathname}` };
-
-  const sandbox = {
-    // A getter so the script re-reads page text on every collection, the way a
-    // real DOM would after an SPA swaps the view.
-    document: {
-      get body() {
-        return { innerText: page.text };
-      }
-    },
-    location,
-    console: { debug() {}, warn() {}, log() {} },
-    Date,
-    Set,
-    RegExp,
-    Array,
-    setTimeout: (fn) => {
-      fn();
-      return 1;
-    },
-    clearTimeout: () => {},
-    setInterval: (fn) => {
-      pollFn = fn;
-      return 1;
-    },
-    addEventListener: (type, fn) => {
-      listeners[type] = fn;
-    },
-    chrome: {
-      runtime: {
-        lastError: undefined,
-        sendMessage: (msg, cb) => {
-          sent.push(msg);
-          if (cb) cb();
-        },
-        onMessage: {
-          addListener: (fn) => {
-            onMessageFn = fn;
-          }
-        }
-      }
-    }
-  };
-
-  vm.runInNewContext(SCRIPT, sandbox);
-
-  return {
-    sent,
-    last: () => sent[sent.length - 1],
-    /** Simulate an SPA route change, then let the poll notice it. */
-    navigate(newPath, newText) {
-      location.pathname = newPath;
-      location.href = `https://${host}${newPath}`;
-      if (newText !== undefined) page.text = newText;
-      pollFn?.();
-    },
-    /** Change the rendered text without navigating. */
-    setText(newText) {
-      page.text = newText;
-    },
-    /** Change the URL and text WITHOUT running a poll tick. */
-    setUrl(newPath, newText) {
-      location.pathname = newPath;
-      location.href = `https://${host}${newPath}`;
-      if (newText !== undefined) page.text = newText;
-    },
-    /** Run one poll tick. */
-    tick: () => pollFn?.(),
-    /** Fire a listener the script registered on window. */
-    fire: (type) => listeners[type]?.(),
-    /** Deliver a COLLECT_NOW message the way the service worker would. */
-    collectNow: () => onMessageFn?.({ type: 'taxnexus/collect-now' }, {}, () => {})
-  };
-}
+const startCollector = (innerText, host, pathname) =>
+  loadCollector(innerText, { host, pathname });
 
 /** Run the content script once; return the message it sends. */
 function runCollector(innerText, host, pathname) {
@@ -214,8 +131,9 @@ test('a poll tick with no navigation sends nothing', () => {
 });
 
 test('navigating between pages with identical signals does not re-report', () => {
-  // The service worker hits the assess API for every payload, so a no-op
-  // re-render or a same-signal route change must not trigger a network call.
+  // Dedup keeps the service worker from rewriting storage and repainting the
+  // badge on every poll tick, so a no-op re-render or a same-signal route
+  // change must not re-report.
   const s = startCollector('Seller Central home — no inventory here', 'sellercentral.amazon.com', '/home');
   assert.equal(s.sent.length, 1);
 

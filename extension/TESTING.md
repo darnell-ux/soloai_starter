@@ -4,7 +4,7 @@ Automated coverage lives in `test/` and runs with `npm test` (node:test, no
 browser). Everything below is what automation does *not* cover.
 
 ```bash
-cd extension && npm test     # 38 tests, must be green before any submission
+cd extension && npm test     # 43 tests, must be green before any submission
 ```
 
 | File | Covers |
@@ -12,7 +12,8 @@ cd extension && npm test     # 38 tests, must be green before any submission
 | `test/detection.test.mjs` | the real content script: detection + SPA navigation |
 | `test/service-worker.test.mjs` | local assessment → risk → badge; zero-network and no-fetch-at-all cases |
 | `test/storage.test.mjs` | snooze, per-tab dismiss, stale-key cleanup, storage schema |
-| `test/harness.mjs` | shared `chrome` mock; its `fetch` throws — not a test file |
+| `test/spa-integration.test.mjs` | content script wired to the service worker — navigation drives a real badge change |
+| `test/harness.mjs` | shared `chrome` mock + both script loaders; its `fetch` throws — not a test file |
 
 The automated suite loads the *shipped* files in a vm sandbox, so it tests the
 code that actually ships rather than a reimplementation. What it cannot do:
