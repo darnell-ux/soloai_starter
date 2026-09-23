@@ -4,9 +4,17 @@
 **Extension version:** 1.0.0 (unreleased — not yet submitted to the Chrome Web Store)
 **App version in production:** 1.1.4 (`https://taxnexusapp.com/health`)
 
-**One blocker remains: the three store screenshots.** They need a pilot seller
-with California inventory placement, which cannot be staged. Everything else is
-submission-ready — 50 extension unit + 4 E2E + 72 app unit tests green,
+**Two blockers remain.**
+
+1. **Three store screenshots** — need a pilot seller with California inventory
+   placement, which cannot be staged.
+2. **A paid, verified Chrome Web Store developer account** — the $5 fee and
+   email verification gate the first upload and are not instant. Unverified as
+   of this writing. **Clear this now**, not when the screenshots arrive; it is
+   the only blocker that is pure waiting and it should not serialise behind the
+   other one.
+
+Everything else is submission-ready — 50 extension unit + 4 E2E + 72 app unit tests green,
 security-reviewed with no findings, the detection path confirmed against real
 Seller Central markup, and extension-to-revenue attribution wired end to end.
 
@@ -34,6 +42,8 @@ the toolbar badge turn red? See "Verified against real Seller Central".
 | Privacy policy live and accurate | ✅ deployed 2026-09-22 |
 | `/trial` CTA target live | ✅ verified at every alert level |
 | Security review | ✅ no findings ≥8/10, two independent passes |
+| Package + manifest field limits | ✅ dry run clean, 32 KB; two over-limit fields fixed |
+| **Developer account paid + verified** | ❓ **unverified — gates the first upload** |
 | **Three screenshots (1280×800)** | ❌ **blocked — needs a pilot seller** |
 
 ### The blocker
@@ -448,6 +458,48 @@ Both the store listing and the privacy policy were corrected when the uninstall
 URL landed — each previously claimed the trial CTA was the *only* thing that
 opens a page. Privacy policy effective date bumped to 2026-09-23 per its own
 §11.
+
+---
+
+## Packaging dry run (2026-09-23)
+
+Ran the submission package before anyone books a pilot seller's time. **Two
+manifest fields exceeded store limits and would have failed at upload.**
+
+| Field | Was | Limit | Now |
+|---|---|---|---|
+| `short_name` | `TaxNexus Alert` (14) | 12 | `TaxNexus` (8) |
+| `description` | 133 chars | 132 | 97 |
+
+Neither is discoverable by building, testing, or loading unpacked — the limits
+are enforced **only by the uploader**, which is the worst place to find out.
+The description is now the listing's short description verbatim, since the
+store uses the manifest field for that anyway; one string, so they cannot
+drift. `LAUNCH-CHECKLIST.md` item 4 carries the one-liner that checks all three.
+
+**ZIP is clean:** 32 KB, 14 entries, no sourcemaps, TS, tests, `node_modules`,
+`__MACOSX` or `.DS_Store`. Item 13 gained that check.
+
+### Two things worth knowing before submitting
+
+**The published extension ID will differ** from the unpacked dev ID
+(`dpmcdonkgnagckncdaomfkkjpdfmdeji`). Checked whether anything depends on it:
+the assess endpoint reflects *any* `chrome-extension://` origin and the
+uninstall URL carries no ID, so **nothing breaks**. Any note referencing that
+ID is dev-only.
+
+**The extension is English-only** — no `default_locale`, while the app runs
+paraglide with en/fr. Consistent with an English listing, so not a blocker. If
+French listing copy is ever added, the extension UI will not follow without
+i18n work.
+
+### The non-code blocker
+
+**The developer account must be paid and verified.** The one-time $5
+registration fee and email verification gate the *first* upload and are not
+instant. This is the only blocker that is pure waiting, so it should be cleared
+now rather than when the screenshots arrive — otherwise it serialises behind
+them for no reason. `LAUNCH-CHECKLIST.md` item 11 says so explicitly.
 
 ---
 
