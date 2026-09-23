@@ -19,7 +19,7 @@ submission-ready.
 | Item | State |
 |---|---|
 | Extension builds, loads unpacked, no errors | ✅ verified in Chrome |
-| Automated tests | ✅ 38/38 green |
+| Automated tests | ✅ 48/48 green |
 | Permissions minimal and defensible | ✅ `activeTab, storage, scripting`; one host |
 | Zero network requests | ✅ test-enforced and verified in the shipped build |
 | Icons | ✅ real artwork, two treatments |
@@ -195,6 +195,73 @@ is kept because the endpoint is public either way. Removing that branch of
 
 ---
 
+## Verified against real Seller Central (2026-09-22 evening)
+
+The biggest open question was whether the extension could read Seller Central
+**at all**. It is answered, and the first answer was bad.
+
+### The finding: innerText was blind to half the page
+
+Measured on a real authenticated FBA inventory page (empty inventory, so no FC
+codes present — the structure was the point):
+
+```
+innerText chars: 1284      iframes: 5      shadow hosts: 89
+{ shallow: 1284, full: 2668, hiddenInShadow: 1384 }
+```
+
+**52% of the page text sat inside shadow roots**, invisible to
+`document.body.innerText`, which stops at every shadow boundary. Seller Central
+is built on Amazon's Cloudscape components — 89 shadow hosts on one page. On a
+populated inventory page the table is among them, so the extension would have
+reported "No CA inventory signal" on a page visibly showing ONT8. A silent
+false negative on the one thing the product exists to catch.
+
+Fixed by walking open shadow roots in `collectText()`.
+
+### The fix, confirmed on the real app
+
+A CA fulfillment-center code was planted **inside an open shadow root** on a
+live Seller Central page (`sellercentral.amazon.com/amazonsell/business`), then
+"Re-scan this page" clicked:
+
+- badge went red `!`
+- popup: **"CA nexus exposure detected"** + **HIGH** chip
+- `CA fulfillment-center code(s): ONT8` under Signals, with the correct live
+  host/path — the per-tab record, not the "another tab" fallback
+- `Physical inventory in CA (Amazon FBA/3PL Nexus)` and `$800/yr`, computed
+  locally with no network call
+
+Removing the fixture and re-scanning returned it to green "No CA inventory
+signal" — so detection reads the page live rather than latching.
+
+**This same test would have failed before the fix.** It is the strongest
+evidence available short of real inventory.
+
+### What this changes
+
+The remaining unknown is much narrower than it was. It is no longer "can the
+extension read Seller Central" — it can, including shadow DOM. It is now only:
+
+> Do real fulfillment-center codes sit in **open** shadow roots (works today),
+> **closed** shadow roots (unreadable by any extension), or inside one of the
+> page's **5 iframes** (`all_frames` is off, so currently out of scope)?
+
+A pilot seller answers that in about ten seconds: open the FBA inventory page
+and see whether the badge turns red. **Ask for that before asking for
+screenshots** — if it fails, the detection approach needs rework and the
+screenshots are moot.
+
+### Also confirmed on the real app, incidentally
+
+- the content script runs on authenticated Seller Central, not just the
+  logged-out landing page
+- **item 6** (clear state) passes on a real page
+- **item 9** — the snooze survived an extension reload and a browser session
+- `chrome.storage.local.clear()` resets cleanly to "No data yet"
+
+---
+
 ## Offline blindside — partially verified
 
 The product's core promise: a seller whose stock sits in a California warehouse
@@ -232,15 +299,20 @@ turn red with a complete result. This also matches the realistic scenario.
 
 ## Next steps
 
-1. **Get a pilot seller to take the three screenshots.** The only blocker. Send
-   the request in `extension/store-assets/README.md`, then run
+1. **Ask a pilot seller one question first:** open your FBA inventory page with
+   CA stock and tell me whether the toolbar badge turns red. Ten seconds, and it
+   settles whether real FC codes are reachable (open shadow roots) or not
+   (closed roots / iframes). If that fails, screenshots are moot and the
+   detection approach needs rework — see "Verified against real Seller Central".
+2. **Then get the three screenshots.** The submission blocker. Send the request
+   in `extension/store-assets/README.md`, then run
    `node store-assets/verify-screenshots.mjs`.
-2. **Run the manual checklist in `extension/TESTING.md`** against a real Seller
+3. **Run the manual checklist in `extension/TESTING.md`** against a real Seller
    Central account — 11 items. Two have never been exercised on a real page:
    item 4 (SPA navigation) and item 11 (offline blindside). See "Offline
    blindside" below for what is already proven and what those two still need.
-3. **Work `extension/LAUNCH-CHECKLIST.md` top to bottom**, then submit.
-4. After approval: add the reverse CTA (an "Install the free Chrome alert"
+4. **Work `extension/LAUNCH-CHECKLIST.md` top to bottom**, then submit.
+5. After approval: add the reverse CTA (an "Install the free Chrome alert"
    link on the TaxNexus homepage and `/taxnexus`). Cheapest item on the
    distribution list and entirely under your control.
 
