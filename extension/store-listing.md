@@ -15,15 +15,22 @@ TaxNexus — CA Nexus Alert for FBA Sellers
 (41 chars.) This string is also `name` in `public/manifest.json` — the store
 takes the listing name from the manifest, so the two must not drift.
 
+`short_name` in the manifest is **`TaxNexus`** (8 chars). The store caps
+`short_name` at **12 characters**; "TaxNexus Alert" is 14 and would have been
+rejected at upload.
+
 ---
 
 ## Short description (max 132)
 
 ```
-Detects California sales tax nexus triggers while you browse Amazon. Free alert for FBA sellers.
+Detects California sales tax nexus triggers on Amazon Seller Central. Free alert for FBA sellers.
 ```
 
-(96 chars.)
+(97 chars.) This is also `description` in `public/manifest.json`. The store uses
+the manifest description as the listing's short description, so the two must
+match — and the manifest field has a hard **132-character** limit that the
+uploader enforces. An earlier draft was 133 and would have been rejected.
 
 ---
 

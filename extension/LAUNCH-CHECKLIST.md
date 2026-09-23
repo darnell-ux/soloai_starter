@@ -13,7 +13,19 @@ rejection or a bad first week rather than a broken extension.
       all 10 items, one sitting. Item 10 (offline blindside) especially.
 - [ ] **4.** `manifest.json`: `version` is `1.0.0`, `short_name` and
       `homepage_url` present, permissions still exactly
-      `["activeTab", "storage", "scripting"]`.
+      `["activeTab", "storage", "scripting"]`. **Check the field limits the
+      uploader enforces** — they are silent until they reject you:
+
+      ```bash
+      cd extension && node -e "
+      const m=require('./dist/manifest.json');
+      const c=(f,v,max)=>console.log(f.padEnd(12), v.length+'/'+max, v.length<=max?'ok':'OVER');
+      c('name',m.name,75); c('short_name',m.short_name,12); c('description',m.description,132);"
+      ```
+
+      `short_name` ≤ **12** and `description` ≤ **132**. Both were over on
+      2026-09-23 ("TaxNexus Alert" at 14, description at 133) and would have
+      failed at upload.
 - [ ] **5.** `package.json` version matches the manifest version.
 - [ ] **6.** Three screenshots captured at 1280×800 per
       `store-assets/README.md`, **with seller-identifying data redacted**.
@@ -39,12 +51,22 @@ rejection or a bad first week rather than a broken extension.
 - [ ] **10.** Listing copy pasted from `store-listing.md` — name, short
       description, full description, all five permission justifications, the
       single-purpose statement.
-- [ ] **11.** Developer account: publisher name set to something a seller will
-      trust (not a personal Gmail handle), contact email verified.
+- [ ] **11.** Developer account exists and is **paid + verified** — the one-time
+      $5 registration fee and email verification are hard prerequisites that
+      gate the very first upload, and verification is not instant. Do this
+      before the screenshots arrive, not after. Publisher name should be
+      something a seller will trust (not a personal Gmail handle).
 - [ ] **12.** A support contact exists and someone reads it — support email or
       a linked page. Reviewers check; so do users leaving 1-star reviews.
 - [ ] **13.** ZIP built from `dist/` only — not the repo, not `node_modules`,
       not `src/`. From `extension/`: `cd dist && zip -r ../taxnexus-alert-1.0.0.zip .`
+      Then confirm nothing stowed away:
+
+      ```bash
+      unzip -l taxnexus-alert-1.0.0.zip | grep -iE "\.map|\.ts$|node_modules|\.env|test|__MACOSX|\.DS_Store"
+      ```
+
+      No output is the pass. Dry run on 2026-09-23: 32 KB, 14 entries, clean.
 - [ ] **14.** Uploaded ZIP test-loaded one final time: unzip to a temp folder,
       load unpacked, confirm it still works. Catches a bad zip root, which is a
       common and embarrassing failure.
