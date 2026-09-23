@@ -1,5 +1,14 @@
 # Nexus Alert extension — Phases 5–8 completion report
 
+> **Partly superseded — see `extension-launch-status.md` for current state.**
+> This is an accurate record of the phases 5–8 work, but browser testing later
+> the same day changed several things it describes. Most notably: the **LOW
+> alert and `www.amazon.com` host access were removed** (LOW fired on
+> Proposition 65 chemical warnings), and the **assess API call was removed
+> entirely** (it could only return one of two fixed answers), so the extension
+> now makes no network requests. Test count is 35, not 26. Read this for the
+> phase history; read the status doc for what ships.
+
 **Date:** 2026-09-22
 **Scope:** `extension/` + `src/routes/trial/`
 **Result:** all four phases complete; 26/26 tests green; `dist/` builds clean.
