@@ -2,12 +2,13 @@
 
 **As of:** 2026-09-22
 **Extension version:** 1.0.0 (unreleased — not yet submitted to the Chrome Web Store)
-**App version in production:** 1.1.2 (`https://taxnexusapp.com/health`)
+**App version in production:** 1.1.4 (`https://taxnexusapp.com/health`)
 
 **One blocker remains: the three store screenshots.** They need a pilot seller
 with California inventory placement, which cannot be staged. Everything else is
-submission-ready — 48 unit + 4 E2E tests green, security-reviewed with no
-findings, and the detection path confirmed against real Seller Central markup.
+submission-ready — 50 extension unit + 4 E2E + 72 app unit tests green,
+security-reviewed with no findings, the detection path confirmed against real
+Seller Central markup, and extension-to-revenue attribution wired end to end.
 
 **Before screenshots, ask the seller one question** (ten seconds, and it can
 invalidate everything else): open your FBA inventory page with CA stock — does
@@ -24,7 +25,7 @@ the toolbar badge turn red? See "Verified against real Seller Central".
 | Item | State |
 |---|---|
 | Extension builds, loads unpacked, no errors | ✅ verified in Chrome |
-| Automated tests | ✅ 50 unit + 4 E2E, all green |
+| Automated tests | ✅ 50 extension unit + 4 E2E + 72 app unit, all green |
 | Permissions minimal and defensible | ✅ `activeTab, storage, scripting`; one host |
 | Zero network requests | ✅ test-enforced and verified in the shipped build |
 | Icons | ✅ real artwork, two treatments |
@@ -181,13 +182,21 @@ verify `/health`).
 | `v1.0.1` | rollback to the v1.0.0 tree (did not restore service; kept as audit trail) |
 | `v1.1.1` | `/trial` + the nginx reload fix — first clean deploy |
 | `v1.1.2` | privacy policy update |
+| `v1.1.3` | `/uninstall` route + policy disclosure of it |
+| `v1.1.4` | signup attribution persisted to the user record (auth schema migration) |
+
+Every deploy since `v1.1.1` has been clean — the nginx reload fix holds.
+`v1.1.4` carried an auth schema change (`ALTER TABLE user`); confirmed applied
+in production by `[auth] schema ensured` in the app log, which is the only
+proof that matters — `/health`'s `database: ok` is a `SELECT 1` and passes
+whether or not the new columns exist.
 
 ---
 
 ## Verified in production
 
 ```
-/health    200   version 1.1.2
+/health    200   version 1.1.4   database: ok
 /trial     200   alert=high | none render their correct copy; alert=bogus falls back safely
 /privacy   200   "Browser extension" bullet live, effective date 2026-09-22
 /          200
@@ -309,6 +318,7 @@ turn red with a complete result. This also matches the realistic scenario.
 |---|---|---|---|
 | Unit (`node:test`) | 48 | `npm test` | Real shipped files in a `vm` sandbox: detection, SPA navigation, worker decisions, storage state, content-script ↔ worker integration |
 | E2E (Playwright) | 4 | `npm run build && npm run test:e2e` | Real Chromium with the built extension loaded |
+| App unit (vitest) | 72 | `npm run test:unit -- --run` | SvelteKit side, incl. the `/trial` → signup → user-row attribution chain against a real SQLite DB |
 | Manual | 11 items | `extension/TESTING.md` | Usability, real Amazon markup, anything needing real inventory |
 
 **The E2E trick worth knowing:** `content_scripts.matches` is
@@ -379,17 +389,41 @@ and several of its central recommendations we declined deliberately.
 |---|---|
 | Capture signals, sync to Strapi/MySQL | **Declined.** All egress removed 2026-09-22 — it made every data disclosure an unambiguous "No" and made the alert work offline. |
 | Inject a Svelte widget into the host page | **Declined.** We read the DOM and never write to it. Seller Central's CSP, 89 shadow hosts and the review surface make injection a poor trade. |
-| Install as a Mautic lead event | **Not built.** Mautic runs in the stack (26 refs in `docker-compose.yml`); the extension is not connected to it. |
+| Install as a Mautic lead event | **Partly.** An extension-originated *signup* now reaches Mautic via the existing `onAuthUserCreated` hook, but without the attribution attached — see the follow-up below. The install itself is still invisible. |
 | Freemium split | **Aligned.** Free = the blindside alert; paid = the full audit, penalties and entity comparison in the app. The extension is an on-ramp, not a competitor, and it does not gate the moment that creates urgency. |
 | Affiliate / referral links | **Rejected, not deferred.** An extension that warns sellers about tax liability and also surfaces referral links corrodes the credibility the product runs on. |
 | Minimum permissions, consent, disclosure | **Exceeds it.** Three permissions, one host, zero egress, local-only storage, user controls, policy kept in step. |
 
-### The real gap: no funnel visibility
+### Funnel visibility — partly closed 2026-09-23
 
-There is no install, activation, or detection signal. The only telemetry is the
-tail end — `trial_landing_view` and `trial_signup_click` on `/trial`, tagged
-with `source` and `alert_level`. After launch, "is this working in the wild?"
-is currently unanswerable.
+There is still no install, activation, or detection signal. But the *end* of the
+funnel now works, which it did not before.
+
+**Attribution used to die at the handoff.** The extension sent people to
+`/trial?source=chrome_extension&alert=high`, and `/trial` linked to a bare
+`/signup` — so an extension-driven signup became indistinguishable from an
+organic one at the exact moment it started being worth money. This document
+already committed to measuring revenue per install and the lifetime value of
+extension-origin customers; the plumbing did not support either.
+
+Fixed in `v1.1.4`. `source` and `alert` are carried across the handoff and
+persisted onto the user row as `signupSource` / `signupAlertLevel` via Better
+Auth `user.additionalFields`, so a paid conversion can be traced back to an
+extension install. Both are `input: true` (required for the signup call to set
+them), so they are normalised against a closed allowlist in a
+`user.create.before` hook — failing closed to `web`/`none` rather than
+persisting whatever a client sends. Organic signups get `web`/`none` rather
+than `NULL`, so "no attribution" stays distinguishable from "we forgot to
+record it".
+
+Verified live: `/trial?source=chrome_extension&alert=high` renders
+`/signup?redirectTo=%2Ftaxnexus&source=chrome_extension&alert=high`, and a
+plain `/trial` visit renders `/signup?redirectTo=%2Ftaxnexus` with no spurious
+params.
+
+**What is still missing** is the front of the funnel — install, activation, and
+whether detection ever fired. After launch, "is this working in the wild?"
+remains unanswerable.
 
 The tension is genuine: adding telemetry reopens the "Website content"
 disclosure that was closed on 2026-09-22 and weakens the
@@ -438,6 +472,14 @@ opens a page. Privacy policy effective date bumped to 2026-09-23 per its own
 
 ### Known gaps, none blocking
 
+- **Mautic does not receive the attribution.** An extension-originated signup
+  reaches Mautic through the existing `onAuthUserCreated` hook, but
+  `mapUserToMauticContact` is a fixed shape of standard fields (email,
+  firstname, lastname, preferred_locale). Sending `signupSource` needs a
+  **custom field created in the Mautic instance first** — writing to one that
+  does not exist fails silently, which is the exact pattern this session spent
+  its time hunting. Deliberately left undone: a Mautic-side config change plus
+  a small extension to the field map.
 - **No error reporting.** Service worker exceptions die silently in users'
   browsers. Current substitute is the support email plus the bug template in
   `TESTING.md`.
