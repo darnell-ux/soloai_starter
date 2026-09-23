@@ -82,6 +82,52 @@ Seller Central if you'd rather not use a live account. **Don't.** Two reasons:
 Screenshot a real account and redact, or don't ship the screenshot. The
 redaction list below exists precisely so a real account is safe to use.
 
+### If you don't have a seller account with CA inventory
+
+You probably won't — CA placement means actually having stock in an Amazon
+California warehouse. Getting there yourself is weeks and real money.
+
+**Fold the capture into a pilot-seller session.** Any seller with CA placement
+can take all three in about two minutes. Ask them, don't reconstruct it.
+
+The redaction list is what makes this a safe ask: nothing identifying needs to
+leave their screen. Send them this:
+
+> Could you grab three screenshots while the extension is installed? Takes
+> about two minutes, and please blur or crop anything you don't want shared —
+> I only need the extension's own UI to be legible.
+>
+> **1.** Your FBA inventory page showing a California fulfillment-center code
+> (ONT8, SMF1, LAX9 or similar), with the TaxNexus icon showing its red `!`
+> badge in the toolbar. Popup closed.
+>
+> **2.** Same page, but click the TaxNexus icon so the popup is open. To
+> capture it without the popup closing: press ⌘⇧5, choose Options → Timer
+> 5 seconds, click Capture, then click the extension icon and hold still.
+>
+> **3.** Any Seller Central inventory page with **no** California codes, popup
+> open, showing the green "No CA inventory signal" state.
+>
+> Please black out or blur: your store/seller name, the account email in the
+> top-right, SKUs and ASINs, unit counts, and any revenue figures. The
+> fulfillment-center code itself should stay readable — that's the part the
+> screenshot is about.
+
+Then run the captures through `verify-screenshots.mjs` and normalise with
+`sips` as below. If a seller sends something that isn't 1280x800, that's
+expected — fix it on your end rather than asking them to re-shoot.
+
+### What not to do while you wait
+
+Do not substitute a mocked Seller Central page, a design comp, or a popup
+composited over a stock photo of a warehouse. All three are misrepresentation
+in a store listing, and the first two will also read as obviously fake to any
+reviewer who has seen the real Seller Central.
+
+Shipping with **no** screenshots is not an option either — the store requires at
+least one. So this is genuinely on the critical path: no pilot seller, no
+submission.
+
 ## Naming
 
 ```

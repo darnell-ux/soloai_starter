@@ -17,6 +17,15 @@ rejection or a bad first week rather than a broken extension.
 - [ ] **5.** `package.json` version matches the manifest version.
 - [ ] **6.** Three screenshots captured at 1280×800 per
       `store-assets/README.md`, **with seller-identifying data redacted**.
+      Verify with `node store-assets/verify-screenshots.mjs`.
+      **Critical path — needs a pilot seller with CA placement.** Two of the
+      three require a California fulfillment-center code on a real FBA
+      inventory page, which cannot be staged: the content script only runs on
+      `sellercentral.amazon.com`, and a mocked page in a store listing is a
+      misleading-screenshot rejection. The store requires at least one
+      screenshot, so no seller means no submission. Schedule this into the
+      first live-testing session; `store-assets/README.md` has a request you
+      can send the seller verbatim.
 - [ ] **7.** `https://taxnexusapp.com/privacy` returns 200 in production and the
       policy text actually describes this extension's data handling. A privacy
       URL that 404s or that only covers the web app is a guaranteed rejection.
