@@ -6,7 +6,12 @@
 
 **One blocker remains: the three store screenshots.** They need a pilot seller
 with California inventory placement, which cannot be staged. Everything else is
-submission-ready.
+submission-ready — 48 unit + 4 E2E tests green, security-reviewed with no
+findings, and the detection path confirmed against real Seller Central markup.
+
+**Before screenshots, ask the seller one question** (ten seconds, and it can
+invalidate everything else): open your FBA inventory page with CA stock — does
+the toolbar badge turn red? See "Verified against real Seller Central".
 
 > Supersedes the behaviour described in
 > `extension-phases-5-8-complete.md`, which is an accurate record of that
@@ -27,6 +32,7 @@ submission-ready.
 | Data-usage disclosures | ✅ all "No", no judgement calls left |
 | Privacy policy live and accurate | ✅ deployed 2026-09-22 |
 | `/trial` CTA target live | ✅ verified at every alert level |
+| Security review | ✅ no findings ≥8/10, two independent passes |
 | **Three screenshots (1280×800)** | ❌ **blocked — needs a pilot seller** |
 
 ### The blocker
@@ -297,6 +303,72 @@ turn red with a complete result. This also matches the realistic scenario.
 
 ---
 
+## Test coverage
+
+| Suite | Count | Run | Covers |
+|---|---|---|---|
+| Unit (`node:test`) | 48 | `npm test` | Real shipped files in a `vm` sandbox: detection, SPA navigation, worker decisions, storage state, content-script ↔ worker integration |
+| E2E (Playwright) | 4 | `npm run build && npm run test:e2e` | Real Chromium with the built extension loaded |
+| Manual | 11 items | `extension/TESTING.md` | Usability, real Amazon markup, anything needing real inventory |
+
+**The E2E trick worth knowing:** `content_scripts.matches` is
+`sellercentral.amazon.com` only, so a localhost fixture is never injected.
+Playwright request interception serves fixture HTML *at that origin*, so the
+real manifest match applies and the shipped content script runs unmodified — no
+seller account, no test-only manifest edits, no network.
+
+E2E fixtures put the FC code inside a **real open shadow root**. The unit tests
+can only mock shadow roots, so this is the only automated coverage exercising
+the shadow walk in a browser — which matters, because that walk was the fix for
+the highest-severity defect found in this session.
+
+**Mutation-checked, not assumed.** Disabling the shadow walk in `dist/` makes
+the first E2E test fail. Worth repeating that check after any `collectText()`
+refactor — a suite that passes vacuously is worse than no suite.
+
+What automation deliberately does **not** cover: visual polish, real Amazon
+markup, and anything requiring real inventory. Those stay manual.
+
+---
+
+## Security review (2026-09-22)
+
+**No findings at reportable confidence (≥8/10). No HIGH, MEDIUM, or LOW.**
+
+Two independent passes over `ebbd307..HEAD`, the second explicitly adversarial
+and instructed to break the first's conclusions. Six attack paths traced and
+ruled out:
+
+| Path | Verdict |
+|---|---|
+| Page content → `href`/`{@html}` sink in the popup | Unreachable. No `@html` anywhere; `ctaUrl` is one of two constants behind a hardcoded `https://` prefix. Page-derived values reach only escaped text interpolation. |
+| Web page messaging the extension | Impossible. No `externally_connectable`, no `onMessageExternal` listener. |
+| Shadow-DOM walk introducing a sink | None. String concatenation into two regex tests. Never touches `contentDocument`/`contentWindow`; cross-origin iframe text stays unreadable. |
+| `?alert`/`?source` prototype pollution | Safe. Validated via `Array.includes` against closed lists; no user-controlled key is ever written into an object. |
+| Workflow secret/untrusted interpolation | Safe. Secrets via `env:`, referenced as quoted `"$APP_DIR"`, never `${{ }}` inlined into a shell body. `workflow_dispatch` requires repo write access. |
+| Newly persisted sensitive data | None. Stores `location.pathname` only — `search`/`hash`, where a session or merchant token would live, are never read. |
+
+Two properties worth recording because they carry real weight:
+
+- **The FC regex genuinely constrains its output.** Matches are drawn from a
+  fixed `[A-Z]{3,4}\d{0,2}` set — they cannot contain `<`, `"`, `'`, or `:`.
+  Even if a sink existed, `fcCodes` could not carry a payload.
+- **`rescanActiveTab()`'s host check is correctly anchored**, rejecting both
+  `sellercentral.amazon.com.evil.com` and
+  `evil.com/?x=https://sellercentral.amazon.com/`.
+
+**The diff is net security-positive.** Deleting `deploy.yml` removed a genuine
+command-injection primitive — it interpolated
+`${{ github.event.inputs.branch }}` straight into an SSH action script. Host
+permissions were narrowed to one origin, and removing all network egress means
+there is no exfiltration path left to get wrong.
+
+Limitations: static review of one diff range. Does not cover pre-existing code,
+the Docker/nginx/VPS configuration, or dependency supply chain, and no runtime
+exploitation was attempted.
+
+---
+
 ## Next steps
 
 1. **Ask a pilot seller one question first:** open your FBA inventory page with
@@ -318,19 +390,18 @@ turn red with a complete result. This also matches the realistic scenario.
 
 ### Known gaps, none blocking
 
-- ~~No E2E harness.~~ **Done 2026-09-22.** `extension/e2e/extension.spec.mjs` —
-  4 Playwright tests against a real Chromium with the built extension loaded
-  (`npm run build && npm run test:e2e`). Request interception serves fixture
-  HTML at `sellercentral.amazon.com`, so the shipped content script is injected
-  by the real manifest match; no seller account needed. Covers detection →
-  badge → popup with the FC code in a **real open shadow root**, zero-network
-  verification, snooze surviving a browser restart, and per-tab dismiss
-  isolation. Mutation-checked — disabling the shadow walk fails the first test.
 - **No error reporting.** Service worker exceptions die silently in users'
   browsers. Current substitute is the support email plus the bug template in
   `TESTING.md`.
-- **Iframes.** `all_frames` is off, so inventory rendered only inside an iframe
-  is not detected. Deliberate — enabling it widens the review surface.
+- **Iframes — now an open question, not a settled tradeoff.** `all_frames` is
+  off, so inventory rendered only inside an iframe is not detected. The real
+  Seller Central inventory page has **5 iframes**. Whether FC codes land in one
+  is unknown and is part of what the pilot seller's first check answers. If they
+  do, the fix is `all_frames: true` (same-origin frames only — cross-origin
+  stays unreadable), at the cost of a wider review surface.
+- **CSP not empirically tested.** Reasoned about only: all logic stays in the
+  isolated world and nothing is injected inline, so Amazon's CSP should not
+  apply to us. Never verified against a CSP failure mode.
 - **Lint/format never run on the `/trial` route files.** The repo's
   `node_modules` is missing `prettier-plugin-svelte` and `eslint-config-prettier`;
   `npm install` at the root restores both. `svelte-check` passes clean, so this
