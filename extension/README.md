@@ -51,7 +51,7 @@ unpacked** → select **`extension/dist`**.
 | `public/icons/` | Toolbar icons (generated) |
 | `src/popup/` | Svelte 5 popup (compiled by Vite) |
 | `shared/messages.js` | Message/storage contract (source of truth) |
-| `test/detection.test.mjs` | Runs the real content script against fixtures |
+| `test/detection.test.mjs` | Real content script: detection + SPA navigation |
 | `test/service-worker.test.mjs` | Assess → risk → alert level → badge decisions |
 | `test/storage.test.mjs` | Snooze, per-tab dismiss, stale-key cleanup |
 | `TESTING.md` | Manual checklist, E2E targets, edge cases, bug template |
@@ -68,7 +68,7 @@ All state is `chrome.storage.local`; nothing syncs.
 | `detection_{tabId}` | object | That tab's record + `storedAt`; swept after 24h |
 | `snooze_until` | timestamp ms | Alerts silent until this time (7 days) |
 | `dismissed_tabs` | array | Tab ids dismissed; cleared on tab close and restart |
-| `last_alert_level` | string | `high` \| `low` \| `none` |
+| `last_alert_level` | string | `high` \| `none` |
 
 **Alert levels.** A CA fulfillment-center code is proof of physical stock in
 California → `high`. Everything else → `none`.
@@ -119,9 +119,9 @@ app, set `API_BASE` in `service-worker.js` to `http://localhost:5173`.
 | 2 | Popup UI opens w/o errors | ✅ | `action.default_popup: index.html`; Svelte popup compiled, no top-level throws |
 | 3 | Service worker registered | ✅ | `background.service_worker` + `type: module`; routes all background logic |
 | 4 | Content scripts Amazon-only | ✅ | `content_scripts.matches` = `sellercentral.amazon.com` only; collection only, no fetch |
-| 5 | API calls via SW only | ✅ | single `fetch(` is `service-worker.js:43`; popup & content script have none (test-enforced) |
+| 5 | API calls via SW only | ✅ | single `fetch(` is `service-worker.js:66`; popup & content script have none (test-enforced, and the Vite modulepreload polyfill is disabled so the bundle is literally clean) |
 | 6 | Minimal permissions | ✅ | exactly `activeTab, storage, scripting`; each is used (scripting: `executeScript`; storage: `local`; activeTab: rescan) |
-| 7 | Manual test of CA detection | ✅ | `npm test` — 4 cases against the real content script (see below) |
+| 7 | Manual test of CA detection | ✅ | `npm test` — 34 cases against the real shipped files (see below) |
 | 8 | One flow flagged for E2E | ✅ | see "E2E candidate" below |
 
 ## Manual test record (#7) — CA warehouse detection flow
@@ -134,9 +134,12 @@ with fixture Seller Central markup and asserts the message it emits:
 - ✅ Texas FC `DFW7` → not flagged (no false positive)
 - ✅ payload is data-only; no `fetch(`/`XMLHttpRequest` anywhere in the script
 - ✅ `hasCaInventory` and `hasCaText` are reported as independent booleans
+- ✅ a Proposition 65 warning is **not** treated as an inventory signal
+- ✅ an SPA route change (Orders → FBA Inventory, no document load) re-collects
+- ✅ unchanged pages do not re-report; an explicit re-scan always does
 
-Run: `npm test` → `tests 26 / pass 26 / fail 0` across detection, service-worker
-decisions, and storage state.
+Run: `npm test` → `tests 34 / pass 34 / fail 0` across detection, SPA
+navigation, service-worker decisions, and storage state.
 
 This is logic-level verification. It does **not** drive a real browser, render
 the popup, or exercise the live `/api/taxnexus/assess` round trip — which is

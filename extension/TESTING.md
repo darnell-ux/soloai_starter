@@ -4,12 +4,12 @@ Automated coverage lives in `test/` and runs with `npm test` (node:test, no
 browser). Everything below is what automation does *not* cover.
 
 ```bash
-cd extension && npm test     # 28 tests, must be green before any submission
+cd extension && npm test     # 34 tests, must be green before any submission
 ```
 
 | File | Covers |
 |---|---|
-| `test/detection.test.mjs` | the real content script against fixture Seller Central markup |
+| `test/detection.test.mjs` | the real content script: detection + SPA navigation |
 | `test/service-worker.test.mjs` | assess → risk → alert level → badge decision path |
 | `test/storage.test.mjs` | snooze, per-tab dismiss, stale-key cleanup, storage schema |
 | `test/harness.mjs` | shared `chrome`/`fetch` mock — not a test file itself |
@@ -36,27 +36,32 @@ one sitting on one build.
       California FC code (ONT8 / SMF1 / LAX9). Badge turns red `!` within a few
       seconds; popup shows "CA nexus exposure detected" with a HIGH chip and the
       detected code listed under "Signals on this page".
-- [ ] **4. No alert off Seller Central.** Open any `www.amazon.com/dp/` product
+- [ ] **4. SPA navigation fires.** From a Seller Central page with no CA stock,
+      click through to FBA Inventory **without reloading** (use the in-app nav,
+      not the address bar). The badge must turn red within ~2s. Then hit browser
+      Back and confirm it clears. This is how sellers actually reach inventory;
+      if it only works on a hard reload, it does not work.
+- [ ] **5. No alert off Seller Central.** Open any `www.amazon.com/dp/` product
       page — ideally one with a Proposition 65 warning. The extension must do
       **nothing**: no badge, and the popup shows the last Seller Central result
       or "No data yet". The content script does not run here at all. (This is a
       regression check: a CA nexus alert once fired on a supplement listing
       because of its Prop 65 label.)
-- [ ] **5. Clear state.** Open a Seller Central page with only non-CA codes
+- [ ] **6. Clear state.** Open a Seller Central page with only non-CA codes
       (DFW7, PHX3). No red badge, popup reads "No CA inventory signal".
-- [ ] **6. Dismiss is per-tab.** With two tabs both showing HIGH, dismiss one.
+- [ ] **7. Dismiss is per-tab.** With two tabs both showing HIGH, dismiss one.
       That tab's badge clears; **the other tab still shows `!`**. Re-scan the
       dismissed tab — the alert comes back.
-- [ ] **7. Snooze silences everything.** Click "Snooze 7 days". Badge clears on
+- [ ] **8. Snooze silences everything.** Click "Snooze 7 days". Badge clears on
       all tabs. Load a fresh CA page — still no badge, but the popup still shows
       the detection (suppression hides the interruption, not the finding).
-- [ ] **8. Snooze survives restart.** Fully quit and reopen Chrome. Still
+- [ ] **9. Snooze survives restart.** Fully quit and reopen Chrome. Still
       snoozed. Confirm in `chrome://extensions` → service worker → Console:
       `chrome.storage.local.get('snooze_until')` returns a future timestamp.
-- [ ] **9. CTA URL is correct.** Click "Start free trial" from a HIGH alert. Lands
+- [ ] **10. CTA URL is correct.** Click "Start free trial" from a HIGH alert. Lands
       on `taxnexusapp.com/trial?source=chrome_extension&alert=high` and the page
       shows the high-alert copy. From a clear popup, confirm `alert=none`.
-- [ ] **10. Offline blindside still works.** DevTools → Network → Offline, then
+- [ ] **11. Offline blindside still works.** DevTools → Network → Offline, then
       load a CA inventory page. Badge must **still** turn red — the local FC-code
       detection is decisive without the API. This is the product's core promise;
       if it fails, do not ship.
@@ -100,14 +105,31 @@ badge, and no unit test sees a real second tab.
 
 ## Known edge cases
 
-**Amazon SPA navigation.** Seller Central is a single-page app: navigating from
-Orders to Inventory often does not reload the document, so the content script's
-`document_idle` entry point never runs again and the badge keeps showing the
-previous page's verdict. There is no `chrome.tabs.onUpdated` or history listener
-today — the mitigation is the manual "Re-scan this page" button. If false
-"clear" states get reported after navigation, this is the first suspect. A
-`MutationObserver` or a `webNavigation.onHistoryStateUpdated` listener would fix
-it, at the cost of a new permission.
+**Amazon SPA navigation (handled).** Seller Central is a single-page app:
+clicking Orders → FBA Inventory does not reload the document, so `run_at:
+document_idle` fires only once per real page load. Since that click-through is
+how sellers normally reach their inventory, an unhandled SPA route change meant
+silently missing the primary detection in ordinary use.
+
+The content script now watches for route changes itself: `popstate` and
+`hashchange` listeners for immediate response, plus a 1s `location.href` poll as
+the backstop, then re-collects after an 800ms settle delay.
+
+Two implementation notes worth keeping in mind before anyone "simplifies" this:
+
+- **Patching `history.pushState` does not work from a content script.** The
+  isolated world gets its own wrappers for page globals, so the page's own
+  `pushState` calls are never intercepted. Reading `location` is cross-world
+  safe, which is why this polls instead.
+- **Payloads are deduplicated by signature** (path + inventory flag + text flag
+  + FC codes). The service worker calls the assess API for *every* payload it
+  receives, so without dedup an SPA that re-renders on a timer would hammer the
+  endpoint. An explicit "Re-scan this page" bypasses dedup — a deliberate user
+  action must never be silently swallowed.
+
+If detections are missed after navigation, check the poll is still running
+(`setInterval` survives, but an exception thrown inside `checkForNavigation`
+would kill it) before suspecting the detector.
 
 **CSP restrictions.** Amazon serves a strict Content-Security-Policy. It does not
 block content scripts (they run in an isolated world), but it does block any

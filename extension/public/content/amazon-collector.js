@@ -77,7 +77,23 @@
     };
   }
 
-  function report() {
+  /**
+   * Identity of a collection result. The service worker calls the assess API
+   * for every payload it receives, so an SPA re-render that changes nothing
+   * must not re-send — otherwise idle browsing hammers the endpoint.
+   */
+  function signatureOf(payload) {
+    return [
+      payload.path,
+      payload.hasCaInventory ? '1' : '0',
+      payload.hasCaText ? '1' : '0',
+      payload.fcCodes.join(',')
+    ].join('|');
+  }
+
+  let lastSignature = null;
+
+  function report(force) {
     let message;
     try {
       message = collectSignals();
@@ -86,15 +102,58 @@
       console.debug('[TaxNexus] collection skipped:', err);
       return;
     }
+    const signature = signatureOf(message.payload);
+    if (!force && signature === lastSignature) return;
+    lastSignature = signature;
     // Hand off to the service worker. The SW owns ALL outbound API calls.
     chrome.runtime.sendMessage(message, () => void chrome.runtime.lastError);
   }
 
+  // --- SPA navigation ---------------------------------------------------
+  // Seller Central is a single-page app: clicking from Orders to FBA
+  // Inventory swaps the view WITHOUT a document load, so `run_at:
+  // document_idle` never fires again and the badge would keep showing the
+  // previous view's verdict. Since that click-through is how sellers
+  // normally reach their inventory, missing it means missing the detection
+  // in ordinary use.
+  //
+  // Why polling rather than hooking history.pushState: a content script runs
+  // in an isolated world with its OWN wrappers for page globals, so patching
+  // `history.pushState` here never intercepts the page's own calls. Reading
+  // `location` is cross-world safe, so we compare it on a timer instead.
+  // popstate/hashchange are still worth listening to — they let back/forward
+  // and hash routing respond immediately instead of waiting for a tick.
+  const URL_POLL_MS = 1000;
+  const SETTLE_MS = 800; // let the new view render before reading its text
+
+  let lastUrl = location.href;
+  let settleTimer = null;
+
+  function scheduleCollect() {
+    if (settleTimer) clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => {
+      settleTimer = null;
+      report();
+    }, SETTLE_MS);
+  }
+
+  function checkForNavigation() {
+    if (location.href === lastUrl) return;
+    lastUrl = location.href;
+    scheduleCollect();
+  }
+
+  addEventListener('popstate', checkForNavigation);
+  addEventListener('hashchange', checkForNavigation);
+  setInterval(checkForNavigation, URL_POLL_MS);
+
   // Re-collect on demand (popup -> SW -> chrome.scripting re-inject, or a direct
   // message from the SW). Responds so the SW can await a fresh pass.
+  // Forced: an explicit "Re-scan this page" must report even if nothing changed,
+  // so the user gets feedback rather than silence.
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg && msg.type === COLLECT_NOW) {
-      report();
+      report(true);
       sendResponse({ ok: true });
     }
     return false;
