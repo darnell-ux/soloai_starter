@@ -3,12 +3,13 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "TaxNexus Nexus Alert Toolbar — MV3 Chrome extension that flags CA nexus exposure on Amazon Seller Central.",
+  "description": "TaxNexus Nexus Alert Toolbar \u2014 MV3 Chrome extension that flags CA nexus exposure on Amazon Seller Central.",
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
     "icons": "node scripts/generate-icons.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "test:e2e": "../node_modules/.bin/playwright test --config playwright.config.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.2.4",

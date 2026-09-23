@@ -161,32 +161,41 @@ Items 1, 2, 5, 8, 9, 10 need no fixture and no account as written.
 
 ---
 
-## E2E Playwright targets
+## E2E (Playwright) — implemented
 
-Chromium with a persistent context and `--load-extension=dist`. Nothing needs
-stubbing — the extension makes no network requests, so these are deterministic
-by default. Three flows, in priority order:
+```bash
+npm run build && npm run test:e2e      # 4 tests, ~3s
+```
 
-**1. CA detection → badge → popup (the mission-critical path)**
-Load a fixture page served locally but matching the Seller Central URL pattern,
-containing `ONT8`. Assert: content script fires → SW writes
-`detection_{tabId}` → badge text is `!` → popup renders "CA nexus exposure
-detected" with the code listed. This flow spans every component of the
-extension and carries the most integration risk.
+`e2e/extension.spec.mjs` drives a real Chromium with the built extension loaded
+via `--load-extension=dist`, covering what the node:test suite structurally
+cannot: **real** shadow roots, **real** per-tab badges, real service-worker
+lifecycle, and state surviving a browser restart.
 
-**2. Snooze suppression across a restart**
-Trigger a HIGH alert, click Snooze, assert the badge clears. Close the
-persistent context and reopen it against the same user-data-dir. Trigger
-detection again and assert the badge stays empty while
-`chrome.storage.local.get('snooze_until')` is still in the future. This is the
-one behaviour whose whole point is surviving a process boundary, which is
-exactly what unit tests cannot prove.
+**The trick that makes this possible without a seller account:** the content
+script matches `https://sellercentral.amazon.com/*` only, so a localhost fixture
+would never be injected. Playwright's request interception serves our fixture
+HTML *at that origin*, so the real manifest match applies and the shipped
+content script runs unmodified.
 
-**3. Per-tab dismiss isolation**
-Open two tabs that both detect CA inventory. Dismiss tab A. Assert tab A's badge
-is empty and tab B's is still `!`, then assert re-scanning tab A restores it.
-Per-tab badge scoping is the easiest thing to silently regress into a global
-badge, and no unit test sees a real second tab.
+| Test | Covers |
+|---|---|
+| detection → badge → popup | the mission-critical path, with the FC code inside a **real open shadow root** |
+| clear page + no network | `✓` badge, and asserts the profile made **zero** requests outside the fixture origin |
+| snooze across restart | closes the browser, reopens the same profile dir, asserts suppression survived |
+| per-tab dismiss isolation | two real tabs; dismiss one, the other keeps alerting; tab close cleans up |
+
+The fixtures put the FC code in an open shadow root deliberately — that is the
+shape of the real page, and the unit tests can only *mock* shadow roots. This is
+the only automated coverage that exercises the shadow walk in a browser.
+
+**These tests were mutation-checked.** Disabling the shadow walk in `dist/`
+makes the first test fail, so it is genuinely asserting the behaviour rather
+than passing vacuously. Worth re-running that check if you ever refactor
+`collectText()`.
+
+Not covered by E2E, deliberately: visual polish, real Amazon markup, and
+anything needing real inventory. Those stay manual — see the checklist above.
 
 ---
 

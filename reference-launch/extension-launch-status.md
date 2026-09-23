@@ -19,7 +19,7 @@ submission-ready.
 | Item | State |
 |---|---|
 | Extension builds, loads unpacked, no errors | ✅ verified in Chrome |
-| Automated tests | ✅ 48/48 green |
+| Automated tests | ✅ 48 unit + 4 E2E, all green |
 | Permissions minimal and defensible | ✅ `activeTab, storage, scripting`; one host |
 | Zero network requests | ✅ test-enforced and verified in the shipped build |
 | Icons | ✅ real artwork, two treatments |
@@ -318,8 +318,14 @@ turn red with a complete result. This also matches the realistic scenario.
 
 ### Known gaps, none blocking
 
-- **No E2E harness.** Three Playwright targets specified in `TESTING.md`, none
-  written.
+- ~~No E2E harness.~~ **Done 2026-09-22.** `extension/e2e/extension.spec.mjs` —
+  4 Playwright tests against a real Chromium with the built extension loaded
+  (`npm run build && npm run test:e2e`). Request interception serves fixture
+  HTML at `sellercentral.amazon.com`, so the shipped content script is injected
+  by the real manifest match; no seller account needed. Covers detection →
+  badge → popup with the FC code in a **real open shadow root**, zero-network
+  verification, snooze surviving a browser restart, and per-tab dismiss
+  isolation. Mutation-checked — disabling the shadow walk fails the first test.
 - **No error reporting.** Service worker exceptions die silently in users'
   browsers. Current substitute is the support email plus the bug template in
   `TESTING.md`.

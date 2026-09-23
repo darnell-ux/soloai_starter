@@ -53,8 +53,9 @@ unpacked** → select **`extension/dist`**.
 | `test/detection.test.mjs` | Real content script: detection + SPA navigation |
 | `test/service-worker.test.mjs` | Assess → risk → alert level → badge decisions |
 | `test/storage.test.mjs` | Snooze, per-tab dismiss, stale-key cleanup |
+| `e2e/extension.spec.mjs` | Playwright: real browser, real shadow roots, real restart |
 | `test/spa-integration.test.mjs` | Content script ↔ service worker across the seam |
-| `TESTING.md` | Manual checklist, E2E targets, edge cases, bug template |
+| `TESTING.md` | Manual checklist, E2E notes, edge cases, bug template |
 | `store-listing.md` | Chrome Web Store copy + permission justifications |
 | `LAUNCH-CHECKLIST.md` | Pre-submission gate and distribution plan |
 
@@ -135,7 +136,7 @@ both duplicated values.
 | 5 | API calls via SW only | ✅ | vacuously — there are **no** network calls anywhere. Test-enforced: the harness `fetch` throws if called, and the Vite modulepreload polyfill is disabled so the popup bundle is literally clean |
 | 6 | Minimal permissions | ✅ | exactly `activeTab, storage, scripting`; each is used (scripting: `executeScript`; storage: `local`; activeTab: rescan) |
 | 7 | Manual test of CA detection | ✅ | `npm test` — 48 cases against the real shipped files (see below) |
-| 8 | One flow flagged for E2E | ✅ | see "E2E candidate" below |
+| 8 | One flow flagged for E2E | ✅ | **implemented**, not just flagged — 4 Playwright tests in `e2e/`, see below |
 
 ## Manual test record (#7) — CA warehouse detection flow
 
@@ -158,20 +159,21 @@ Run: `npm test` → `tests 48 / pass 48 / fail 0` across detection, SPA
 navigation, service-worker decisions, storage state, and an integration pass
 that wires the real content script to the real service worker.
 
-This is logic-level verification. It does **not** drive a real browser, render
-the popup, or exercise the live `/api/taxnexus/assess` round trip — which is
-exactly why that end-to-end path is the E2E candidate. The manual checklist that
-covers the rest is in `TESTING.md`.
+This is logic-level verification in a `vm` sandbox. It does **not** drive a real
+browser, render the popup, or touch a real shadow root — which is exactly what
+the Playwright suite below adds. The manual checklist that covers the rest
+(visual polish, real Amazon markup) is in `TESTING.md`.
 
-## E2E candidate for future work (#8)
+## E2E coverage (#8)
 
-**Mission-critical flow:** *Seller Central FBA inventory page → CA exposure shown
-in the popup.* Full chain: content script collects on a real page → service
-worker calls `/api/taxnexus/assess` → `chrome.storage` updated → badge turns red
-→ popup opens and renders "CA nexus exposure detected" with the triggers.
+Implemented in `e2e/extension.spec.mjs` — `npm run build && npm run test:e2e`.
 
-This is the product's core promise (the blindside warning) and the one flow that
-spans every component plus the network boundary, so it carries the most
-integration risk. Recommended harness: Playwright with a persistent context and
-`--load-extension=dist` (Chromium), a stubbed/mocked `assess` endpoint for
-determinism, asserting badge text and popup contents.
+Four Playwright tests drive a real Chromium with the built extension loaded.
+Playwright request interception serves fixture HTML *at* `sellercentral.amazon.com`,
+so the shipped content script is injected by the real manifest match and runs
+unmodified — no seller account needed.
+
+Covers the mission-critical flow (detection → badge → popup, with the FC code in
+a **real open shadow root**), zero-network verification, snooze surviving a
+browser restart, and per-tab dismiss isolation. Mutation-checked: disabling the
+shadow walk makes the first test fail.
