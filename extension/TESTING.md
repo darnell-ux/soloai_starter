@@ -4,15 +4,15 @@ Automated coverage lives in `test/` and runs with `npm test` (node:test, no
 browser). Everything below is what automation does *not* cover.
 
 ```bash
-cd extension && npm test     # 35 tests, must be green before any submission
+cd extension && npm test     # 38 tests, must be green before any submission
 ```
 
 | File | Covers |
 |---|---|
 | `test/detection.test.mjs` | the real content script: detection + SPA navigation |
-| `test/service-worker.test.mjs` | local assessment → risk → alert level → badge; asserts zero network |
+| `test/service-worker.test.mjs` | local assessment → risk → badge; zero-network and no-fetch-at-all cases |
 | `test/storage.test.mjs` | snooze, per-tab dismiss, stale-key cleanup, storage schema |
-| `test/harness.mjs` | shared `chrome`/`fetch` mock — not a test file itself |
+| `test/harness.mjs` | shared `chrome` mock; its `fetch` throws — not a test file |
 
 The automated suite loads the *shipped* files in a vm sandbox, so it tests the
 code that actually ships rather than a reimplementation. What it cannot do:
@@ -61,10 +61,25 @@ one sitting on one build.
 - [ ] **10. CTA URL is correct.** Click "Start free trial" from a HIGH alert. Lands
       on `taxnexusapp.com/trial?source=chrome_extension&alert=high` and the page
       shows the high-alert copy. From a clear popup, confirm `alert=none`.
-- [ ] **11. Offline blindside still works.** DevTools → Network → Offline, then
-      load a CA inventory page. Badge must **still** turn red — the local FC-code
-      detection is decisive without the API. This is the product's core promise;
-      if it fails, do not ship.
+- [ ] **11. Offline blindside still works.** The product's core promise. **Order
+      matters** — going offline *first* and then navigating means Seller Central
+      itself never loads, so there is no page to scan and the extension looks
+      broken for a reason that has nothing to do with it. Do this instead:
+      1. Load a Seller Central FBA inventory page with a CA code **online**, and
+         confirm the red `!` badge.
+      2. Clear state so nothing can be served from a previous pass: in the popup
+         console, `await chrome.storage.local.clear()`. Badge goes dark.
+      3. **Now** go offline: DevTools → Network → **Offline**.
+      4. Click **Re-scan this page** in the popup.
+      5. The badge must turn red `!` again and the popup must show the HIGH
+         chip, the FC code, and the `$800/yr` line — a complete result, not a
+         degraded one.
+
+      While offline, also confirm the **Network tab stays completely empty** for
+      the extension. There is no request it could make; seeing one means
+      something was reintroduced.
+
+      If this fails, do not ship — it is the entire reason the product exists.
 
 ### Also worth running before a release
 
@@ -78,15 +93,16 @@ one sitting on one build.
 
 ## E2E Playwright targets
 
-Chromium with a persistent context and `--load-extension=dist`. Stub
-`/api/taxnexus/assess` for determinism. Three flows, in priority order:
+Chromium with a persistent context and `--load-extension=dist`. Nothing needs
+stubbing — the extension makes no network requests, so these are deterministic
+by default. Three flows, in priority order:
 
 **1. CA detection → badge → popup (the mission-critical path)**
 Load a fixture page served locally but matching the Seller Central URL pattern,
 containing `ONT8`. Assert: content script fires → SW writes
 `detection_{tabId}` → badge text is `!` → popup renders "CA nexus exposure
-detected" with the code listed. This flow spans every component plus the network
-boundary and carries the most integration risk.
+detected" with the code listed. This flow spans every component of the
+extension and carries the most integration risk.
 
 **2. Snooze suppression across a restart**
 Trigger a HIGH alert, click Snooze, assert the badge clears. Close the
@@ -123,10 +139,12 @@ Two implementation notes worth keeping in mind before anyone "simplifies" this:
   `pushState` calls are never intercepted. Reading `location` is cross-world
   safe, which is why this polls instead.
 - **Payloads are deduplicated by signature** (path + inventory flag + text flag
-  + FC codes). The service worker calls the assess API for *every* payload it
-  receives, so without dedup an SPA that re-renders on a timer would hammer the
-  endpoint. An explicit "Re-scan this page" bypasses dedup — a deliberate user
-  action must never be silently swallowed.
+  + FC codes). This originally existed because the service worker called the
+  assess API for every payload, so an SPA re-rendering on a timer would hammer
+  the endpoint. That call is gone, but dedup stays: it keeps the SW from
+  rewriting storage and re-painting the badge on every tick. An explicit
+  "Re-scan this page" bypasses dedup — a deliberate user action must never be
+  silently swallowed.
 
 If detections are missed after navigation, check the poll is still running
 (`setInterval` survives, but an exception thrown inside `checkForNavigation`

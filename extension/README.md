@@ -133,7 +133,7 @@ both duplicated values.
 | 4 | Content scripts Amazon-only | ✅ | `content_scripts.matches` = `sellercentral.amazon.com` only; collection only, no fetch |
 | 5 | API calls via SW only | ✅ | vacuously — there are **no** network calls anywhere. Test-enforced: the harness `fetch` throws if called, and the Vite modulepreload polyfill is disabled so the popup bundle is literally clean |
 | 6 | Minimal permissions | ✅ | exactly `activeTab, storage, scripting`; each is used (scripting: `executeScript`; storage: `local`; activeTab: rescan) |
-| 7 | Manual test of CA detection | ✅ | `npm test` — 35 cases against the real shipped files (see below) |
+| 7 | Manual test of CA detection | ✅ | `npm test` — 38 cases against the real shipped files (see below) |
 | 8 | One flow flagged for E2E | ✅ | see "E2E candidate" below |
 
 ## Manual test record (#7) — CA warehouse detection flow
@@ -150,8 +150,9 @@ with fixture Seller Central markup and asserts the message it emits:
 - ✅ an SPA route change (Orders → FBA Inventory, no document load) re-collects
 - ✅ unchanged pages do not re-report; an explicit re-scan always does
 - ✅ a full session makes **zero** network requests (harness `fetch` throws)
+- ✅ the HIGH alert still fires with `fetch` absent from the environment entirely
 
-Run: `npm test` → `tests 35 / pass 35 / fail 0` across detection, SPA
+Run: `npm test` → `tests 38 / pass 38 / fail 0` across detection, SPA
 navigation, service-worker decisions, and storage state.
 
 This is logic-level verification. It does **not** drive a real browser, render

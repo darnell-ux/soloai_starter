@@ -31,7 +31,12 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
  * instead of silently depending on the network. Inspect `w.fetchCalls`.
  *
  * @param {object} [seed]  initial chrome.storage.local contents
- * @param {object} [opts]  { activeTab } — the tab chrome.tabs.query returns
+ * @param {object} [opts]  { activeTab, noFetch }
+ *   activeTab — the tab chrome.tabs.query returns
+ *   noFetch   — omit `fetch` from the sandbox entirely, so merely *referencing*
+ *               it is a ReferenceError. Stricter than a throwing fetch: proves
+ *               the code path has no dependency on fetch existing, and cannot
+ *               be satisfied by a try/catch swallowing a failed request.
  */
 export function loadWorker(seed = {}, opts = {}) {
 	let onMessage = null;
@@ -122,6 +127,8 @@ export function loadWorker(seed = {}, opts = {}) {
 			scripting: { executeScript: async () => {} }
 		}
 	};
+
+	if (opts.noFetch) delete sandbox.fetch;
 
 	vm.runInNewContext(SCRIPT, sandbox);
 	assert.ok(onMessage, 'service worker registered an onMessage listener');

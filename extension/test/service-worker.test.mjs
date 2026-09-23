@@ -169,3 +169,63 @@ test('a full session makes zero network requests', async () => {
 
 	assert.deepEqual(w.fetchCalls, [], 'the extension must never hit the network');
 });
+
+// --- the blindside warning with no network -----------------------------------
+// The product's core promise: a seller whose stock sits in a California
+// warehouse gets warned, full stop. Manual checklist item 11 covers this in a
+// real browser; these are the parts provable without one.
+
+test('HIGH alert works with fetch removed from the environment entirely', async () => {
+	// Stricter than simulating a failed request: `fetch` does not exist here, so
+	// referencing it at all is a ReferenceError. A try/catch around a network
+	// call could not satisfy this — only genuinely not having one.
+	const w = loadWorker({}, { noFetch: true });
+
+	const record = await w.sendPageSignals(
+		{ hasCaInventory: true, hasCaText: false, fcCodes: ['ONT8'], signals: ['ONT8'] },
+		TAB
+	);
+
+	assert.equal(record.risk, 'exposed');
+	assert.equal(record.alertLevel, 'high');
+	assert.equal(w.badge.byTab[TAB].text, '!', 'red badge with no network stack at all');
+	assert.equal(record.assessment.minTax, 800, 'assessment is complete, not degraded');
+	assert.deepEqual(
+		[...record.assessment.triggers],
+		['Physical inventory in CA (Amazon FBA/3PL Nexus)']
+	);
+});
+
+test('every path survives a missing network stack, not just the alert', async () => {
+	// The realistic failure is a connection dropping mid-session, so snooze,
+	// dismiss, re-scan and startup cleanup have to keep working too.
+	const w = loadWorker(
+		{},
+		{ noFetch: true, activeTab: { id: 1, url: 'https://sellercentral.amazon.com/inventory/fba' } }
+	);
+
+	await w.sendPageSignals({ hasCaInventory: true, hasCaText: true, fcCodes: ['SMF1'], signals: [] }, 1);
+	assert.equal(w.badge.byTab[1].text, '!');
+
+	assert.equal((await w.send({ type: 'taxnexus/snooze' })).ok, true);
+	assert.equal((await w.send({ type: 'taxnexus/dismiss', tabId: 1 })).ok, true);
+	assert.equal((await w.send({ type: 'taxnexus/rescan' })).ok, true);
+	assert.ok(await w.send({ type: 'taxnexus/get-state' }));
+
+	await w.closeTab(1);
+	await w.fireStartup();
+	// Reaching here without a ReferenceError is the assertion.
+});
+
+test('a clear page still reads CLEAR with no network, not "no data yet"', async () => {
+	// Before the assess call was removed this degraded to UNKNOWN with no badge,
+	// so a seller with nothing to worry about got an ambiguous answer whenever
+	// the connection was flaky. It now answers definitively either way.
+	const w = loadWorker({}, { noFetch: true });
+	const record = await w.sendPageSignals(
+		{ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] },
+		TAB
+	);
+	assert.equal(record.risk, 'clear');
+	assert.equal(w.badge.byTab[TAB].text, '✓');
+});
