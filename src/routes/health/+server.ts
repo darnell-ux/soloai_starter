@@ -15,7 +15,7 @@ import { openAuthDatabase } from '$lib/server/auth-options';
  * client; MySQL belongs to Strapi/Mautic. Checking SQLite verifies the store the
  * app actually reads/writes on every authenticated request.
  */
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.1.3';
 
 function checkDatabase(): 'ok' | 'degraded' {
 	let db: ReturnType<typeof openAuthDatabase> | undefined;
