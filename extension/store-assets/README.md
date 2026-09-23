@@ -68,21 +68,71 @@ popup open on "No CA inventory signal on this page" with the green badge. This
 is the trust shot: it shows the extension stays quiet when there is nothing to
 say, which is the main thing a skeptical seller wants to know.
 
-## Fixtures
+## These must be real Seller Central pages
 
-If you can't or don't want to screenshot a live seller account, serve a static
-fixture that mirrors the Seller Central inventory table markup and matches the
-content-script URL pattern. `test/detection.test.mjs` has the text shapes the
-collector actually matches — a fixture built from those will trigger the same
-alerts. Do not fake the *popup*; it must be the real rendered extension.
+An earlier draft of this file suggested serving a local fixture that mimics
+Seller Central if you'd rather not use a live account. **Don't.** Two reasons:
+
+1. It won't work. `content_scripts.matches` is `sellercentral.amazon.com` only,
+   so a localhost fixture never triggers the content script at all.
+2. A fabricated page dressed as Amazon, presented in a store listing as though
+   it were the real thing, is a misleading screenshot — one of the standard
+   rejection reasons, and it misrepresents Amazon's interface besides.
+
+Screenshot a real account and redact, or don't ship the screenshot. The
+redaction list below exists precisely so a real account is safe to use.
 
 ## Naming
 
 ```
 store-assets/
-  screenshot-1-low-alert.png
-  screenshot-2-high-alert.png
+  screenshot-1-high-alert-context.png
+  screenshot-2-high-alert-popup.png
   screenshot-3-clear.png
+```
+
+## Capture on macOS
+
+**Sizing.** Resize the window so the capture is *at least* 1280×800, then
+normalise exactly. Check the viewport in any page console:
+
+```js
+console.log(window.innerWidth, window.innerHeight)
+```
+
+**Capturing a shot with the popup open** is the awkward one — clicking anywhere
+to start a region capture closes the popup. Use the delayed capture instead:
+
+1. `⌘⇧5` → **Options** → **Timer: 5 seconds** → choose *Capture Selected Window*
+2. Click **Capture**
+3. Immediately click the extension icon to open the popup
+4. Hold still; the shot fires with the popup up
+
+For popup-closed shots (screenshot 1), `⌘⇧4` then **Space** captures a window
+directly.
+
+**Do not use DevTools' "Capture screenshot" command** for these. It grabs the
+page viewport only, so the toolbar and badge — the whole point of screenshot 1 —
+are missing.
+
+**Normalise to exactly 1280×800** with `sips`, which ships with macOS:
+
+```bash
+cd extension/store-assets
+sips -z 800 1280 screenshot-1-high-alert-context.png   # -z is height then width
+```
+
+`-z` forces both dimensions and will distort if the source aspect isn't 16:10,
+so crop to 16:10 first if needed:
+
+```bash
+sips -c 800 1280 input.png --out cropped.png           # -c crops centred
+```
+
+Then verify all three at once:
+
+```bash
+node store-assets/verify-screenshots.mjs
 ```
 
 ## Optional, not blocking submission
