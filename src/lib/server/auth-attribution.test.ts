@@ -57,13 +57,15 @@ describe('signup attribution schema', () => {
 				email: 'seller@example.com',
 				password: 'password12345',
 				name: 'Seller',
-				// What /signup sends after /trial hands attribution over.
+				// What /signup sends after /trial hands attribution over. Cast at the
+				// call site: additionalFields are not reflected in the inferred body
+				// type without the inferAdditionalFields client plugin.
 				...normalizeSignupAttribution({
 					signupSource: 'chrome_extension',
 					signupAlertLevel: 'high'
 				})
-			} as Parameters<typeof auth.api.signUpEmail>[0]['body']
-		});
+			}
+		} as Parameters<typeof auth.api.signUpEmail>[0]);
 
 		const row = db
 			.prepare('SELECT signupSource, signupAlertLevel FROM user WHERE email = ?')
