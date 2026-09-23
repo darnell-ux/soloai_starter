@@ -5,12 +5,14 @@
 Work top to bottom. Items 1–8 are blocking; 9–15 are things that cause a
 rejection or a bad first week rather than a broken extension.
 
-- [ ] **1.** `cd extension && npm test` — 26/26 green.
+- [ ] **1.** `cd extension && npm test` — 50/50 green, then
+      `npm run test:e2e` — 4/4 green.
 - [ ] **2.** `npm run build` succeeds and `dist/` contains `manifest.json`,
       `service-worker.js`, `content/amazon-collector.js`, `index.html`,
       `icons/` (4 PNGs), `assets/`.
 - [ ] **3.** Full manual checklist in `TESTING.md` passed on **this** build —
-      all 10 items, one sitting. Item 10 (offline blindside) especially.
+      all 11 items, one sitting. Items 4 (SPA navigation) and 11 (offline
+      blindside) especially; both need a real Seller Central page.
 - [ ] **4.** `manifest.json`: `version` is `1.0.0`, `short_name` and
       `homepage_url` present, permissions still exactly
       `["activeTab", "storage", "scripting"]`. **Check the field limits the
