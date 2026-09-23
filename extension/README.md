@@ -48,7 +48,7 @@ unpacked** → select **`extension/dist`**.
 | `public/manifest.json` | MV3 manifest (copied to `dist/`) |
 | `public/service-worker.js` | Background logic + the only network calls |
 | `public/content/amazon-collector.js` | Amazon-scoped DOM collection |
-| `public/icons/` | Toolbar icons (generated) |
+| `public/icons/` | Generated: `icon*` (tiled, store) + `toolbar*` (transparent) |
 | `src/popup/` | Svelte 5 popup (compiled by Vite) |
 | `shared/messages.js` | Message/storage contract (source of truth) |
 | `test/detection.test.mjs` | Real content script: detection + SPA navigation |

@@ -11,7 +11,7 @@ PNGs next to this file.
 | Screenshot 1 — HIGH alert in context (badge + page) | 1280×800 PNG | ☐ to capture |
 | Screenshot 2 — HIGH alert, popup open | 1280×800 PNG | ☐ to capture |
 | Screenshot 3 — clear state | 1280×800 PNG | ☐ to capture |
-| Store icon | 128×128 PNG | ✅ `public/icons/icon128.png` |
+| Store icon | 128×128 PNG | ✅ `public/icons/icon128.png` — amber map pin on a dark rounded tile |
 
 Three screenshots is the minimum the store accepts and the maximum this listing
 needs. **1280×800 exactly** — the store also accepts 640×400, but mixing sizes
