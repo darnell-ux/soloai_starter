@@ -13,10 +13,9 @@ Amazon Seller Central page
         │  (DOM read only — no network)
         ▼
 content/amazon-collector.js  ──sendMessage──►  service-worker.js
-   detects CA fulfillment-center                 • the ONLY fetch() in the app
-   codes (ONT8, SMF1, …)                         • POST /api/taxnexus/assess
-                                                 • writes chrome.storage.local
-                                                 • sets toolbar badge
+   detects CA fulfillment-center                 • assesses locally (no network)
+   codes (ONT8, SMF1, …)                         • writes chrome.storage.local
+   re-runs on SPA navigation                     • sets toolbar badge
         ┌──────────────────────────────────────────────┘
         ▼
    Popup.svelte  ◄── reads state via GET_STATE / storage.onChanged
@@ -46,7 +45,7 @@ unpacked** → select **`extension/dist`**.
 | Path | Role |
 |------|------|
 | `public/manifest.json` | MV3 manifest (copied to `dist/`) |
-| `public/service-worker.js` | Background logic + the only network calls |
+| `public/service-worker.js` | Background logic + local assessment (no network) |
 | `public/content/amazon-collector.js` | Amazon-scoped DOM collection |
 | `public/icons/` | Generated: `icon*` (tiled, store) + `toolbar*` (transparent) |
 | `src/popup/` | Svelte 5 popup (compiled by Vite) |
@@ -91,25 +90,38 @@ shows the detection on demand. Snooze survives a browser restart (it is a
 timestamp); per-tab dismissals deliberately do not, because Chrome recycles tab
 ids across sessions.
 
-## API access (why permissions stay minimal)
+## No network access at all
 
 `permissions` is intentionally exactly `["activeTab", "storage", "scripting"]`
 with **no `host_permissions`**. The Amazon content script is scoped through
 `content_scripts.matches` (declarative content scripts grant their own scoped
 host access without enlarging the `permissions` array).
 
-Because there is no host permission for the API origin, the service worker's
-`fetch` to `https://taxnexusapp.com/api/taxnexus/assess` relies on the API
-returning permissive **CORS** headers for the extension origin. Two production
-options:
+**The extension makes zero network requests.** Not a minimised set — none. The
+only outbound thing it does is open a link when the user clicks the trial CTA.
 
-1. Add `Access-Control-Allow-Origin` for the extension on the SvelteKit
-   `/api/taxnexus/assess` route (keeps permissions minimal — preferred), **or**
-2. Add `"host_permissions": ["https://taxnexusapp.com/*"]` to the manifest
-   (avoids CORS but widens the permission surface).
+It used to POST to `/api/taxnexus/assess`, which forced a CORS dependency (no
+host permission for the API origin, so the endpoint had to reflect the extension
+origin). That call was removed on 2026-09-22 once it became clear it could only
+ever return one of two fixed answers: the extension sent `sales: 0`,
+`hasEmployees: false` and `entityType: 'LLC'` as constants, leaving a single
+boolean as the only variable. The round trip was computing a constant, so
+`assessLocally()` in `service-worker.js` now returns it directly.
 
-This scaffold ships option 1's assumption. For local testing against the running
-app, set `API_BASE` in `service-worker.js` to `http://localhost:5173`.
+What that bought:
+
+- every Web Store data-disclosure answer is an unambiguous **No**
+- a reviewer can verify the privacy claim in the Network tab in ten seconds
+- a clear page reads CLEAR **offline**; it used to degrade to "No data yet"
+- no CORS dependency, and no exposure to the endpoint's 30/min per-IP rate limit
+
+Two values are duplicated from `src/lib/server/taxnexus/assess-nexus.ts`: the
+`Physical inventory in CA (Amazon FBA/3PL Nexus)` trigger string and the `$800`
+minimum franchise tax. Deliberately **not** duplicated are `FORM_DATABASE` (the
+popup never renders forms) and the indexed thresholds (`SALES_THRESHOLD`,
+`PROPERTY_THRESHOLD` — this path never reaches them, so the annual FTB
+re-indexing does not touch the extension). `test/service-worker.test.mjs` pins
+both duplicated values.
 
 ## Verification against the 8 review criteria
 
@@ -119,9 +131,9 @@ app, set `API_BASE` in `service-worker.js` to `http://localhost:5173`.
 | 2 | Popup UI opens w/o errors | ✅ | `action.default_popup: index.html`; Svelte popup compiled, no top-level throws |
 | 3 | Service worker registered | ✅ | `background.service_worker` + `type: module`; routes all background logic |
 | 4 | Content scripts Amazon-only | ✅ | `content_scripts.matches` = `sellercentral.amazon.com` only; collection only, no fetch |
-| 5 | API calls via SW only | ✅ | single `fetch(` is `service-worker.js:66`; popup & content script have none (test-enforced, and the Vite modulepreload polyfill is disabled so the bundle is literally clean) |
+| 5 | API calls via SW only | ✅ | vacuously — there are **no** network calls anywhere. Test-enforced: the harness `fetch` throws if called, and the Vite modulepreload polyfill is disabled so the popup bundle is literally clean |
 | 6 | Minimal permissions | ✅ | exactly `activeTab, storage, scripting`; each is used (scripting: `executeScript`; storage: `local`; activeTab: rescan) |
-| 7 | Manual test of CA detection | ✅ | `npm test` — 34 cases against the real shipped files (see below) |
+| 7 | Manual test of CA detection | ✅ | `npm test` — 35 cases against the real shipped files (see below) |
 | 8 | One flow flagged for E2E | ✅ | see "E2E candidate" below |
 
 ## Manual test record (#7) — CA warehouse detection flow
@@ -137,8 +149,9 @@ with fixture Seller Central markup and asserts the message it emits:
 - ✅ a Proposition 65 warning is **not** treated as an inventory signal
 - ✅ an SPA route change (Orders → FBA Inventory, no document load) re-collects
 - ✅ unchanged pages do not re-report; an explicit re-scan always does
+- ✅ a full session makes **zero** network requests (harness `fetch` throws)
 
-Run: `npm test` → `tests 34 / pass 34 / fail 0` across detection, SPA
+Run: `npm test` → `tests 35 / pass 35 / fail 0` across detection, SPA
 navigation, service-worker decisions, and storage state.
 
 This is logic-level verification. It does **not** drive a real browser, render

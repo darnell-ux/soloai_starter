@@ -4,13 +4,13 @@ Automated coverage lives in `test/` and runs with `npm test` (node:test, no
 browser). Everything below is what automation does *not* cover.
 
 ```bash
-cd extension && npm test     # 34 tests, must be green before any submission
+cd extension && npm test     # 35 tests, must be green before any submission
 ```
 
 | File | Covers |
 |---|---|
 | `test/detection.test.mjs` | the real content script: detection + SPA navigation |
-| `test/service-worker.test.mjs` | assess → risk → alert level → badge decision path |
+| `test/service-worker.test.mjs` | local assessment → risk → alert level → badge; asserts zero network |
 | `test/storage.test.mjs` | snooze, per-tab dismiss, stale-key cleanup, storage schema |
 | `test/harness.mjs` | shared `chrome`/`fetch` mock — not a test file itself |
 
@@ -69,8 +69,9 @@ one sitting on one build.
 ### Also worth running before a release
 
 - [ ] Uninstall removes all state (reinstall → "No data yet", no stale snooze).
-- [ ] No network requests to anything but `taxnexusapp.com` (Network tab,
-      filter by domain, over a full browsing session).
+- [ ] **Zero** network requests from the extension over a full browsing session
+      (DevTools → Network on the service worker). Not "only taxnexusapp.com" —
+      none at all. This is a claim the store listing makes explicitly.
 - [ ] Popup renders correctly at 100% and 150% browser zoom.
 
 ---

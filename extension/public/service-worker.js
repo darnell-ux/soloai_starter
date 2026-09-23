@@ -33,55 +33,64 @@ const DETECTION_TTL_MS = 24 * 60 * 60 * 1000;
 
 const detectionKey = (tabId) => `${STORAGE.DETECTION_PREFIX}${tabId}`;
 
-// The TaxNexus app's nexus-assessment endpoint (SvelteKit: src/routes/api/taxnexus/assess).
-// For local dev against the running app, switch to 'http://localhost:5173'.
-// NOTE on permissions: we deliberately keep host_permissions empty so the
-// manifest's `permissions` stays exactly [activeTab, storage, scripting]. That
-// means this cross-origin fetch relies on the API returning permissive CORS
-// headers for the extension origin (see extension/README.md → "API access").
-const API_BASE = 'https://taxnexusapp.com';
-const ASSESS_ENDPOINT = `${API_BASE}/api/taxnexus/assess`;
-
-// The trial CTA. This is the ENTIRE Strapi/app integration surface beyond the
-// assess call — a UTM-tagged link the popup opens; the extension never reads
-// or writes Strapi content itself.
-const TRIAL_URL = `${API_BASE}/trial`;
+// The trial CTA. A UTM-tagged link the popup opens — a link, not a request.
+// This is the extension's ENTIRE integration surface with the app.
+const APP_BASE = 'https://taxnexusapp.com';
+const TRIAL_URL = `${APP_BASE}/trial`;
 const trialUrl = (alertLevel) =>
   `${TRIAL_URL}?source=chrome_extension&alert=${encodeURIComponent(alertLevel || ALERT.NONE)}`;
 
-/**
- * Ask the TaxNexus API to assess nexus exposure for the collected signals.
- * This is the one and only network call in the whole extension.
- */
-async function assessNexus(signals) {
-  const body = {
-    // Any CA inventory at all -> nonzero, which trips the API's
-    // "Physical inventory in CA" trigger regardless of sales volume.
-    inventory: signals.hasCaInventory ? 1 : 0,
-    sales: 0,
-    hasEmployees: false,
-    entityType: 'LLC'
-  };
+// --- assessment (fully local) ------------------------------------------------
+//
+// This used to POST to /api/taxnexus/assess. It no longer makes ANY network
+// request, because the call could only ever return one of two fixed answers.
+//
+// The extension sent three of the four inputs as constants — sales: 0,
+// hasEmployees: false, entityType: 'LLC' — leaving `inventory` (1 or 0) as the
+// only variable. Walking the server's engine (src/lib/server/taxnexus/
+// assess-nexus.ts) with those inputs: sales 0 never reaches the $757,070
+// threshold, hasEmployees false never trips payroll, and inventory 1 is below
+// the $75,707 property threshold so it always lands on the "Physical inventory
+// in CA" branch. Two inputs, two possible outputs, both verified against
+// production. The round trip was computing a constant.
+//
+// Removing it means the extension makes zero network requests of any kind,
+// which is both a much stronger privacy claim and one a Web Store reviewer can
+// confirm in the Network tab. It also means a clear page reads CLEAR while
+// offline instead of degrading to "No data yet".
+//
+// Only two values are duplicated from the server: the trigger string and the
+// $800 minimum franchise tax. Deliberately NOT duplicated: FORM_DATABASE (the
+// popup never renders forms) and the indexed thresholds (this path never
+// reaches them). $800 is statutory and long stable; if FTB ever changes the
+// rule that any CA inventory creates nexus, this extension needs a rethink
+// regardless of where the constant lives.
+const MIN_FRANCHISE_TAX = 800;
+const CA_INVENTORY_TRIGGER = 'Physical inventory in CA (Amazon FBA/3PL Nexus)';
 
-  const res = await fetch(ASSESS_ENDPOINT, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) {
-    throw new Error(`assess failed: ${res.status}`);
-  }
-  return res.json();
+const ASSESSMENT_EXPOSED = Object.freeze({
+  hasNexus: true,
+  triggers: Object.freeze([CA_INVENTORY_TRIGGER]),
+  minTax: MIN_FRANCHISE_TAX
+});
+const ASSESSMENT_CLEAR = Object.freeze({
+  hasNexus: false,
+  triggers: Object.freeze([]),
+  minTax: 0
+});
+
+/** Mirrors assessNexus() in the app for the only inputs this extension uses. */
+function assessLocally(signals) {
+  return signals.hasCaInventory ? ASSESSMENT_EXPOSED : ASSESSMENT_CLEAR;
 }
 
 function riskFromAssessment(signals, assessment) {
-  // Local CA inventory detection alone is decisive: physical presence makes a
-  // seller "doing business" at any sales volume, so a detected CA fulfillment-
-  // center code means EXPOSED even when the assess API is unreachable. This must
-  // come BEFORE the null-assessment check so the blindside warning still fires
-  // during an API outage (otherwise a real CA signal degrades to "No data yet").
+  // Physical presence makes a seller "doing business" at any sales volume, so a
+  // detected CA fulfillment-center code is decisive on its own. Now that the
+  // assessment is computed locally this can never be indeterminate — there is no
+  // network call left to fail, which is exactly the point: the blindside warning
+  // works with the machine offline.
   if (signals.hasCaInventory) return RISK.EXPOSED;
-  if (!assessment) return RISK.UNKNOWN;
   return assessment.hasNexus ? RISK.EXPOSED : RISK.CLEAR;
 }
 
@@ -157,12 +166,7 @@ async function setBadge(risk, tabId) {
 
 /** Persist the latest signals + assessment and reflect it in the toolbar badge. */
 async function handlePageSignals(signals, tabId) {
-  let assessment = null;
-  try {
-    assessment = await assessNexus(signals);
-  } catch (err) {
-    console.warn('[TaxNexus] assess request failed:', err);
-  }
+  const assessment = assessLocally(signals);
   const risk = riskFromAssessment(signals, assessment);
   const alertLevel = alertLevelFor(signals, risk);
   const record = {

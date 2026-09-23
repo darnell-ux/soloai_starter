@@ -5,13 +5,19 @@ import { assessNexus, parseNexusAssessBody } from '$lib/server/taxnexus/assess-n
 import { readJsonBody } from '$lib/server/http/read-json';
 import { rateLimit } from '$lib/server/rate-limiter';
 
-// This endpoint is also called by the TaxNexus Nexus Alert browser extension,
-// whose service worker fetches from a chrome-extension:// (or moz-extension://)
-// origin. It is unauthenticated and returns only generic CA nexus-threshold
-// logic, so we allow cross-origin access by reflecting an extension Origin.
-// Keeping CORS here (rather than host_permissions in the extension) preserves
-// the extension's minimal-permissions design. Same-origin app calls are
-// unaffected (no Origin reflection needed).
+// CORS reflects chrome-extension:// and moz-extension:// origins. This was
+// added for the TaxNexus Nexus Alert browser extension, which no longer uses
+// it: as of 2026-09-22 the extension computes its assessment locally and makes
+// no network requests at all (it only ever sent three constants plus one
+// boolean, so the call could return only two possible answers — see
+// extension/README.md → "No network access at all").
+//
+// The reflection is kept because the endpoint is public and unauthenticated
+// either way, and a future extension or integration may want it. If you would
+// rather shrink the surface, removing the extension-origin branch of
+// corsHeaders() is safe — nothing ships today that depends on it.
+//
+// Same-origin app calls are unaffected (no Origin reflection needed).
 //
 // Because it is public + unauthenticated, it is rate-limited per client IP and
 // every response carries a correlation id (X-Request-Id). Logging is content-free

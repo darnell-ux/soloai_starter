@@ -9,7 +9,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
 	loadWorker,
-	okAssess,
 	hostArray,
 	detectionRecord,
 	STORAGE_KEY,
@@ -22,12 +21,11 @@ import {
 
 const SEVEN_DAYS_MS = 7 * DAY_MS;
 const CA_SIGNALS = { hasCaInventory: true, hasCaText: true, fcCodes: ['ONT8'], signals: ['ONT8'] };
-const NEXUS = { hasNexus: true, triggers: ['Physical inventory in CA'], minTax: 800 };
 
 // --- snooze -----------------------------------------------------------------
 
 test('snooze sets snooze_until 7 days out and clears the badge', async () => {
-	const w = loadWorker(okAssess(NEXUS));
+	const w = loadWorker();
 	const before = Date.now();
 	const res = await w.send({ type: 'taxnexus/snooze' });
 	const after = Date.now();
@@ -43,7 +41,7 @@ test('snooze sets snooze_until 7 days out and clears the badge', async () => {
 
 test('snoozed state prevents the badge update but still records the detection', async () => {
 	// Seeded snooze = the state that survives a browser restart.
-	const w = loadWorker(okAssess(NEXUS), { [SNOOZE_KEY]: Date.now() + SEVEN_DAYS_MS });
+	const w = loadWorker({ [SNOOZE_KEY]: Date.now() + SEVEN_DAYS_MS });
 	const record = await w.sendPageSignals(CA_SIGNALS, 42);
 
 	assert.equal(record.suppressed, 'snoozed');
@@ -54,7 +52,7 @@ test('snoozed state prevents the badge update but still records the detection', 
 });
 
 test('an EXPIRED snooze does not suppress — the badge fires again', async () => {
-	const w = loadWorker(okAssess(NEXUS), { [SNOOZE_KEY]: Date.now() - 1000 });
+	const w = loadWorker({ [SNOOZE_KEY]: Date.now() - 1000 });
 	const record = await w.sendPageSignals(CA_SIGNALS, 42);
 
 	assert.equal(record.suppressed, undefined);
@@ -64,7 +62,7 @@ test('an EXPIRED snooze does not suppress — the badge fires again', async () =
 // --- dismiss ----------------------------------------------------------------
 
 test('dismiss clears the badge for that tab only', async () => {
-	const w = loadWorker(okAssess(NEXUS));
+	const w = loadWorker();
 	// Two tabs both detect CA inventory.
 	await w.sendPageSignals(CA_SIGNALS, 1);
 	await w.sendPageSignals(CA_SIGNALS, 2);
@@ -85,7 +83,7 @@ test('dismiss clears the badge for that tab only', async () => {
 });
 
 test('dismissed_tabs is cleaned up when the tab closes', async () => {
-	const w = loadWorker(okAssess(NEXUS));
+	const w = loadWorker();
 	await w.sendPageSignals(CA_SIGNALS, 7);
 	await w.send({ type: 'taxnexus/dismiss', tabId: 7 });
 	assert.deepEqual(hostArray(w.store[DISMISSED_KEY]), [7]);
@@ -98,16 +96,14 @@ test('dismissed_tabs is cleaned up when the tab closes', async () => {
 });
 
 test('dismiss without a tab id is a no-op, not a crash', async () => {
-	const w = loadWorker(okAssess(NEXUS));
+	const w = loadWorker();
 	const res = await w.send({ type: 'taxnexus/dismiss' });
 	assert.equal(res.ok, false);
 	assert.equal(res.reason, 'no_tab');
 });
 
 test('re-scanning a dismissed tab un-dismisses it (explicit user intent)', async () => {
-	const w = loadWorker(
-		okAssess(NEXUS),
-		{ [DISMISSED_KEY]: [3, 4] },
+	const w = loadWorker({ [DISMISSED_KEY]: [3, 4] },
 		{ activeTab: { id: 3, url: 'https://sellercentral.amazon.com/inventory/fba' } }
 	);
 
@@ -118,9 +114,7 @@ test('re-scanning a dismissed tab un-dismisses it (explicit user intent)', async
 });
 
 test('re-scan on a non-Amazon tab is refused and leaves dismissals alone', async () => {
-	const w = loadWorker(
-		okAssess(NEXUS),
-		{ [DISMISSED_KEY]: [3] },
+	const w = loadWorker({ [DISMISSED_KEY]: [3] },
 		{ activeTab: { id: 3, url: 'https://example.com/' } }
 	);
 
@@ -139,7 +133,7 @@ test('startup cleanup removes detection keys older than 24 hours', async () => {
 	const stale = detectionRecord(12, DAY_MS + 60 * 1000); // just over 24h
 	const ancient = detectionRecord(13, 30 * DAY_MS);
 
-	const w = loadWorker(okAssess(NEXUS), {
+	const w = loadWorker({
 		[fresh.key]: fresh.value,
 		[borderline.key]: borderline.value,
 		[stale.key]: stale.value,
@@ -162,13 +156,13 @@ test('startup cleanup removes detection keys older than 24 hours', async () => {
 
 test('a detection record with no timestamp is swept as stale', async () => {
 	// Older schema / partial write — treated as expired rather than kept forever.
-	const w = loadWorker(okAssess(NEXUS), { [`${DETECTION_PREFIX}99`]: { tabId: 99 } });
+	const w = loadWorker({ [`${DETECTION_PREFIX}99`]: { tabId: 99 } });
 	await w.fireStartup();
 	assert.ok(!(`${DETECTION_PREFIX}99` in w.store));
 });
 
 test('startup clears dismissed_tabs — tab ids do not survive a restart', async () => {
-	const w = loadWorker(okAssess(NEXUS), { [DISMISSED_KEY]: [1, 2, 3] });
+	const w = loadWorker({ [DISMISSED_KEY]: [1, 2, 3] });
 	await w.fireStartup();
 	assert.ok(!(DISMISSED_KEY in w.store), 'stale tab ids would suppress unrelated tabs');
 });
@@ -176,7 +170,7 @@ test('startup clears dismissed_tabs — tab ids do not survive a restart', async
 // --- schema -----------------------------------------------------------------
 
 test('storage schema matches the documented contract', async () => {
-	const w = loadWorker(okAssess(NEXUS));
+	const w = loadWorker();
 	await w.sendPageSignals(CA_SIGNALS, 5);
 	await w.send({ type: 'taxnexus/snooze' });
 	await w.send({ type: 'taxnexus/dismiss', tabId: 5 });
@@ -196,7 +190,7 @@ test('storage schema matches the documented contract', async () => {
 // --- CTA URL (Phase 6) ------------------------------------------------------
 
 test('CTA URL carries source=chrome_extension and the alert level', async () => {
-	const high = await loadWorker(okAssess(NEXUS)).sendPageSignals(CA_SIGNALS, 1);
+	const high = await loadWorker().sendPageSignals(CA_SIGNALS, 1);
 	assert.equal(high.alertLevel, 'high');
 	assert.equal(
 		high.ctaUrl,
@@ -205,7 +199,7 @@ test('CTA URL carries source=chrome_extension and the alert level', async () => 
 
 	// A clear page still carries a CTA, tagged so the landing page can tell the
 	// difference between "the extension warned me" and "I clicked from nowhere".
-	const none = await loadWorker(okAssess({ hasNexus: false, triggers: [] })).sendPageSignals(
+	const none = await loadWorker().sendPageSignals(
 		{ hasCaInventory: false, hasCaText: true, fcCodes: [], signals: [] },
 		2
 	);

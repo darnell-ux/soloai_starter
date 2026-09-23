@@ -84,11 +84,15 @@ credentials. It does not log in as you. It does not scrape your inventory to a
 server. It has no analytics, no tracking pixel, and no advertising code of any
 kind. It never sees a page you do not open yourself.
 
-The extension makes exactly one network request, and only when a page signal is
-found: an anonymous call to the TaxNexus nexus-threshold API carrying a single
-number — whether California inventory was detected, as a 1 or a 0. No product
-data, no account data, no identifiers. Everything else stays on your machine in
-local browser storage.
+The extension makes no network requests at all. Not a minimal set — none. It
+does not phone home, does not check in, and does not send a single byte
+anywhere. Every check runs inside your browser, and everything it remembers is
+kept in local browser storage that is deleted when you uninstall. The only time
+anything leaves your machine is when you yourself click the "Start free trial"
+link, which opens a normal web page.
+
+A practical consequence: it keeps working with no connection at all. If your
+inventory page loads, the alert fires.
 
 WHO IT'S FOR
 
@@ -106,8 +110,9 @@ HOW IT WORKS
 Amazon labels fulfillment centers with airport-style codes. California's
 warehouses share a known set of prefixes. The extension scans the rendered text
 of Seller Central inventory and placement pages for those codes, entirely inside
-your browser, and maps a match to the relevant California obligation. The logic
-is the same threshold engine behind the TaxNexus web app.
+your browser, and maps a match to the relevant California obligation. The rule
+it applies is the same one the TaxNexus web app uses, evaluated locally — there
+is no server call to make and nothing to send.
 
 Detection is a signal, not a legal determination. The extension tells you where
 to look; a qualified tax professional tells you what to do.
@@ -116,8 +121,8 @@ PRIVACY FIRST
 
 • No account required. No sign-up to use the alert.
 • No browsing history collected, stored, or transmitted.
-• No personal or financial data leaves your browser.
-• Runs only on amazon.com and sellercentral.amazon.com — nowhere else.
+• Nothing leaves your browser. The extension makes no network requests.
+• Runs only on sellercentral.amazon.com — nowhere else, not even the rest of Amazon.
 • All state is kept in local browser storage and is deleted when you uninstall.
 • Full policy: https://taxnexusapp.com/privacy
 
@@ -208,27 +213,22 @@ Answer **No** to every "does your extension collect…" category:
 | Location | No |
 | Web history | No |
 | User activity | No |
-| Website content | **Decide before submitting — see below** |
+| Website content | No — page text is read in memory and never transmitted |
 
 Then tick all three certifications: no sale of data, no use unrelated to the
 single purpose, no use to determine creditworthiness.
 
-### The one disclosure that needs a decision
+### Every answer here is now unambiguous
 
-Page text is read in memory and is never transmitted — but the assess call does
-send *one derived bit* off the machine (`inventory: 1` or `0`, meaning "a CA
-fulfillment-center code was or wasn't present"). That is derived from website
-content, so "No" is arguable but not obviously correct, and a wrong answer here
-is a policy violation rather than a fixable listing error.
+There was previously a judgement call on **Website content**: the extension sent
+one derived bit off the machine (`inventory: 1` or `0`) to the assess API, which
+is derived from page content, making a flat "No" arguable rather than clearly
+correct.
 
-Two clean ways out, in order of preference:
+That was resolved on 2026-09-22 by removing the network call entirely — it could
+only ever return one of two fixed answers, so it now computes locally. The
+extension makes zero network requests, so every box above is a straightforward
+"No" with nothing to defend.
 
-1. **Declare "Yes" for Website content** and state in the justification that the
-   only value transmitted is a single boolean flag with no page text, URL, or
-   identifier attached. Honest, and costs nothing at review.
-2. **Stop transmitting it.** `riskFromAssessment()` already treats a local CA
-   detection as decisive on its own — the assess call adds nothing to the HIGH
-   case. Dropping the call for detected-CA pages would make the extension fully
-   offline for its main path and let every box be an unambiguous No.
-
-Do not submit with an unreviewed "No" here.
+If a reviewer asks, the claim is checkable in seconds: open the Network tab and
+use the extension. There is no request to find.

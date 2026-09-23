@@ -32,9 +32,10 @@ rejection or a bad first week rather than a broken extension.
 - [ ] **8.** `https://taxnexusapp.com/trial?source=chrome_extension&alert=high`
       returns 200 in production and shows the high-alert copy. The CTA is the
       only outbound link in the product — a 404 here wastes every install.
-- [ ] **9.** The "Website content" data disclosure decision in
-      `store-listing.md` has been made deliberately, not defaulted. See that
-      file's "The one disclosure that needs a decision" section.
+- [ ] **9.** Data disclosures: answer **No** to every category. This is no
+      longer a judgement call — the extension makes zero network requests, so
+      there is nothing to defend. Verify before ticking: open DevTools on the
+      service worker, use the extension, confirm the Network tab stays empty.
 - [ ] **10.** Listing copy pasted from `store-listing.md` — name, short
       description, full description, all five permission justifications, the
       single-purpose statement.
@@ -66,8 +67,11 @@ same bundled, in-package collector file and never remote or generated code.
 Remote code execution is a hard rejection and an appeal takes weeks.
 
 **Privacy policy that doesn't match the manifest.** The policy must name this
-extension, describe what it reads (Amazon page text) and what leaves the device
-(one derived boolean). A generic site-wide policy gets rejected.
+extension and describe what it reads (Seller Central page text). Verified
+2026-09-22: `taxnexusapp.com/privacy` does mention the extension by name. Note
+that it still describes the extension as *detecting* figures used to compute an
+estimate — accurate, but if you revise it, the stronger statement is now
+available: nothing is transmitted, because the extension makes no requests.
 
 **Overbroad host access — resolved, keep it that way.** An earlier draft also
 matched `https://www.amazon.com/*`, which covers all of Amazon shopping and is

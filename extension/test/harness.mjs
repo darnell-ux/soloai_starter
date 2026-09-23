@@ -22,25 +22,23 @@ export const LAST_LEVEL_KEY = 'last_alert_level';
 export const DETECTION_PREFIX = 'detection_';
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** A fetch stand-in that resolves with the given assess response body. */
-export const okAssess = (bodyObj) => async () => ({ ok: true, json: async () => bodyObj });
-/** A fetch stand-in that simulates the assess API being unreachable. */
-export const failAssess = () => async () => {
-	throw new Error('network down');
-};
-
 /**
- * Instantiate the service worker with a mock `chrome`/`fetch`.
+ * Instantiate the service worker with a mock `chrome`.
  *
- * @param {Function} fetchImpl  stands in for the assess API call
- * @param {object}   [seed]     initial chrome.storage.local contents
- * @param {object}   [opts]     { activeTab } — the tab chrome.tabs.query returns
+ * There is deliberately no fetch stand-in to configure: the extension makes no
+ * network requests at all. The sandbox's `fetch` records the attempt and then
+ * throws, so if a network call is ever reintroduced the suite fails loudly
+ * instead of silently depending on the network. Inspect `w.fetchCalls`.
+ *
+ * @param {object} [seed]  initial chrome.storage.local contents
+ * @param {object} [opts]  { activeTab } — the tab chrome.tabs.query returns
  */
-export function loadWorker(fetchImpl, seed = {}, opts = {}) {
+export function loadWorker(seed = {}, opts = {}) {
 	let onMessage = null;
 	let onRemoved = null;
 	let onStartup = null;
 	const store = { ...seed };
+	const fetchCalls = [];
 
 	// Badge state is tracked per tab as well as globally, because suppression
 	// (snooze / dismiss) is precisely a question of which tabs got a badge.
@@ -68,7 +66,12 @@ export function loadWorker(fetchImpl, seed = {}, opts = {}) {
 		RegExp,
 		JSON,
 		encodeURIComponent,
-		fetch: fetchImpl,
+		fetch: (...args) => {
+			fetchCalls.push(args);
+			throw new Error(
+				'the extension must not make network requests — see assessLocally() in service-worker.js'
+			);
+		},
 		chrome: {
 			runtime: {
 				lastError: undefined,
@@ -149,7 +152,7 @@ export function loadWorker(fetchImpl, seed = {}, opts = {}) {
 		await flush();
 	};
 
-	return { send, sendPageSignals, closeTab, fireStartup, store, badge };
+	return { send, sendPageSignals, closeTab, fireStartup, store, badge, fetchCalls };
 }
 
 /**

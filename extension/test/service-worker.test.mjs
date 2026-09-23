@@ -1,22 +1,22 @@
 // Verification of the service worker's core decision path:
-//   PAGE_SIGNALS message -> assess (mocked) -> chrome.storage.local + badge.
+//   PAGE_SIGNALS message -> local assessment -> chrome.storage.local + badge.
 //
 // Loads the ACTUAL shipped service worker via the shared harness, delivers a
 // page-signals message, and asserts the persisted risk + toolbar badge.
 // Exercises the real code path, not a reimplementation — the counterpart to
 // detection.test.mjs for the SW. Snooze/dismiss/cleanup live in storage.test.mjs.
 //
-// The critical case is "CA inventory detected but the assess API is DOWN": the
-// extension must still report EXPOSED (its whole reason to exist is the offline
-// blindside warning), not degrade to UNKNOWN.
+// The extension makes NO network requests. The harness's `fetch` throws if
+// called, so any reintroduced request fails the suite rather than quietly
+// making these tests depend on the network.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadWorker, okAssess, failAssess, STORAGE_KEY, LAST_LEVEL_KEY } from './harness.mjs';
+import { loadWorker, STORAGE_KEY, LAST_LEVEL_KEY } from './harness.mjs';
 
 const TAB = 7;
 
-test('CA inventory + assess says nexus -> EXPOSED, red "!" badge', async () => {
-	const w = loadWorker(okAssess({ hasNexus: true, triggers: ['Physical inventory in CA'], minTax: 800 }));
+test('CA inventory -> EXPOSED, red "!" badge', async () => {
+	const w = loadWorker();
 	const record = await w.sendPageSignals(
 		{ hasCaInventory: true, hasCaText: true, fcCodes: ['ONT8'], signals: ['ONT8'] },
 		TAB
@@ -26,43 +26,64 @@ test('CA inventory + assess says nexus -> EXPOSED, red "!" badge', async () => {
 	assert.equal(w.badge.byTab[TAB].text, '!');
 });
 
-test('CA inventory + assess API DOWN -> still EXPOSED (offline blindside warning)', async () => {
-	const w = loadWorker(failAssess());
+test('the blindside warning needs no network at all', async () => {
+	// The product's whole reason to exist. This used to be "the assess API is
+	// DOWN but we still warn"; there is no longer an API call that could fail,
+	// so the warning is unconditional by construction.
+	const w = loadWorker();
 	const record = await w.sendPageSignals(
 		{ hasCaInventory: true, hasCaText: false, fcCodes: ['SMF1'], signals: ['SMF1'] },
 		TAB
 	);
-	// The regression this guards: a real CA signal must NOT degrade to UNKNOWN
-	// just because the assess call failed.
+
 	assert.equal(record.risk, 'exposed');
-	assert.equal(record.assessment, null);
 	assert.equal(w.badge.byTab[TAB].text, '!');
+	assert.deepEqual(w.fetchCalls, [], 'no network request was attempted');
 });
 
-test('no CA inventory + assess says no nexus -> CLEAR, green check badge', async () => {
-	const w = loadWorker(okAssess({ hasNexus: false, triggers: [] }));
+test('no CA inventory -> CLEAR, green check badge, still no network', async () => {
+	// Previously this state depended on the API answering; offline it degraded
+	// to UNKNOWN with no badge. Now a clear page reads clear even on a plane.
+	const w = loadWorker();
 	const record = await w.sendPageSignals(
 		{ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] },
 		TAB
 	);
 	assert.equal(record.risk, 'clear');
 	assert.equal(w.badge.byTab[TAB].text, '✓');
+	assert.deepEqual(w.fetchCalls, []);
 });
 
-test('no CA inventory + assess API DOWN -> UNKNOWN, no badge', async () => {
-	const w = loadWorker(failAssess());
-	const record = await w.sendPageSignals(
-		{ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] },
-		TAB
+test('the local assessment matches what the server engine would return', async () => {
+	// Guards the two values duplicated from src/lib/server/taxnexus/assess-nexus.ts.
+	// Both verified against production on 2026-09-22 for the only inputs this
+	// extension ever used (sales 0, hasEmployees false, entityType LLC).
+	const w = loadWorker();
+
+	const exposed = await w.sendPageSignals(
+		{ hasCaInventory: true, hasCaText: false, fcCodes: ['ONT8'], signals: [] },
+		1
 	);
-	assert.equal(record.risk, 'unknown');
-	assert.equal(w.badge.byTab[TAB].text, '');
+	assert.equal(exposed.assessment.hasNexus, true);
+	assert.deepEqual(
+		[...exposed.assessment.triggers],
+		['Physical inventory in CA (Amazon FBA/3PL Nexus)']
+	);
+	assert.equal(exposed.assessment.minTax, 800, 'CA minimum franchise tax');
+
+	const clear = await w.sendPageSignals(
+		{ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] },
+		2
+	);
+	assert.equal(clear.assessment.hasNexus, false);
+	assert.deepEqual([...clear.assessment.triggers], []);
+	assert.equal(clear.assessment.minTax, 0);
 });
 
 test('a tab-less sender still works (badge falls back to the global default)', async () => {
 	// chrome.scripting.executeScript injections and legacy callers can arrive
 	// without sender.tab; that must not throw or skip persistence.
-	const w = loadWorker(okAssess({ hasNexus: true, triggers: [], minTax: 800 }));
+	const w = loadWorker();
 	const record = await w.sendPageSignals({ hasCaInventory: true, hasCaText: true, fcCodes: ['LAX9'], signals: [] });
 	assert.equal(record.risk, 'exposed');
 	assert.equal(w.badge.text, '!', 'global badge, not a per-tab one');
@@ -72,7 +93,7 @@ test('a tab-less sender still works (badge falls back to the global default)', a
 // --- alert level derivation -------------------------------------------------
 
 test('alert level: FC code -> high, everything else -> none', async () => {
-	const w = loadWorker(okAssess({ hasNexus: false, triggers: [] }));
+	const w = loadWorker();
 
 	const high = await w.sendPageSignals(
 		{ hasCaInventory: true, hasCaText: true, fcCodes: ['ONT8'], signals: [] },
@@ -95,7 +116,7 @@ test('CA text WITHOUT an FC code raises no alert (Prop 65 regression)', async ()
 	// listing carrying "WARNING: California's Proposition 65" raised a CA nexus
 	// alert on a colon-cleanse supplement. Page text mentioning California says
 	// nothing about where inventory physically sits, so it must not alert.
-	const w = loadWorker(okAssess({ hasNexus: false, triggers: [] }));
+	const w = loadWorker();
 	const record = await w.sendPageSignals(
 		{
 			hasCaInventory: false,
@@ -112,14 +133,39 @@ test('CA text WITHOUT an FC code raises no alert (Prop 65 regression)', async ()
 	assert.equal(record.signals.hasCaText, true);
 });
 
-test('assess-driven nexus with no local CA signal still reads as high', async () => {
-	// If the API says hasNexus the risk is EXPOSED, the alert level must agree —
-	// the banner and the severity chip must never contradict each other.
-	const w = loadWorker(okAssess({ hasNexus: true, triggers: ['Sales over threshold'], minTax: 800 }));
-	const record = await w.sendPageSignals(
-		{ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] },
+test('risk and alert level never contradict each other', async () => {
+	// The popup's status banner reads `risk` and its severity chip reads
+	// `alertLevel`. A green "No CA inventory signal" beside an amber severity
+	// badge reads as a bug, so the two must move together.
+	const w = loadWorker();
+
+	const exposed = await w.sendPageSignals(
+		{ hasCaInventory: true, hasCaText: false, fcCodes: ['ONT8'], signals: [] },
 		1
 	);
-	assert.equal(record.risk, 'exposed');
-	assert.equal(record.alertLevel, 'high');
+	assert.equal(exposed.risk, 'exposed');
+	assert.equal(exposed.alertLevel, 'high');
+
+	const clear = await w.sendPageSignals(
+		{ hasCaInventory: false, hasCaText: true, fcCodes: [], signals: [] },
+		2
+	);
+	assert.equal(clear.risk, 'clear');
+	assert.equal(clear.alertLevel, 'none');
+});
+
+test('a full session makes zero network requests', async () => {
+	// The listing claims the extension never talks to the network. This is that
+	// claim, enforced: every message type, then assert nothing was attempted.
+	const w = loadWorker();
+	await w.sendPageSignals({ hasCaInventory: true, hasCaText: true, fcCodes: ['ONT8'], signals: [] }, 1);
+	await w.sendPageSignals({ hasCaInventory: false, hasCaText: false, fcCodes: [], signals: [] }, 2);
+	await w.send({ type: 'taxnexus/get-state' });
+	await w.send({ type: 'taxnexus/snooze' });
+	await w.send({ type: 'taxnexus/dismiss', tabId: 1 });
+	await w.send({ type: 'taxnexus/rescan' });
+	await w.closeTab(1);
+	await w.fireStartup();
+
+	assert.deepEqual(w.fetchCalls, [], 'the extension must never hit the network');
 });
