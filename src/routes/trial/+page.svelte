@@ -4,6 +4,7 @@
 	import SeoHead from '$lib/components/SeoHead.svelte';
 	import { localizeHref } from '$lib/paraglide/runtime';
 	import { trackEvent } from '$lib/analytics/dataLayer';
+	import { attributionQuery } from '$lib/attribution';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -40,8 +41,14 @@
 	} as const;
 
 	const copy = $derived(COPY[data.alert]);
+	// Carry attribution across the handoff. Without this the chain breaks exactly
+	// where it starts being worth money: an extension-driven signup would be
+	// indistinguishable from an organic one the moment the user clicks through.
 	const signupHref = $derived(
-		localizeHref(`/signup?redirectTo=${encodeURIComponent('/taxnexus')}`) as string
+		localizeHref(
+			`/signup?redirectTo=${encodeURIComponent('/taxnexus')}` +
+				attributionQuery(data.source, data.alert)
+		) as string
 	);
 	const auditHref = $derived(localizeHref('/taxnexus') as string);
 

@@ -1,5 +1,6 @@
 import { extractLocaleFromRequest, localizeHref } from '$lib/paraglide/runtime';
 import { redirect } from '@sveltejs/kit';
+import { parseAlertLevel, parseSignupSource } from '$lib/attribution';
 import type { PageServerLoad } from './$types';
 
 function safeRedirectPath(raw: string | null): string {
@@ -18,6 +19,10 @@ export const load: PageServerLoad = async ({ locals, url, request }) => {
 		throw redirect(302, localizeHref(dest, { locale }) as string);
 	}
 	return {
-		redirectTo: safeRedirectPath(url.searchParams.get('redirectTo'))
+		redirectTo: safeRedirectPath(url.searchParams.get('redirectTo')),
+		// Attribution handed over from /trial. Both fail closed to their defaults,
+		// so a hand-typed or tampered value cannot reach the user row.
+		signupSource: parseSignupSource(url.searchParams.get('source')),
+		signupAlertLevel: parseAlertLevel(url.searchParams.get('alert'))
 	};
 };

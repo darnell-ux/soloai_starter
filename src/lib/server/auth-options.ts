@@ -2,6 +2,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import Database from 'better-sqlite3';
 import type { BetterAuthOptions } from 'better-auth';
+import { DEFAULT_ALERT_LEVEL, DEFAULT_SIGNUP_SOURCE } from '../attribution';
 
 const DEV_PLACEHOLDER_SECRET = 'dev-only-dev-only-dev-only-dev-only!!';
 
@@ -50,6 +51,27 @@ export function makeAuthOptions(database: Database.Database): BetterAuthOptions 
 			changeEmail: {
 				enabled: true,
 				updateEmailWithoutVerification: true
+			},
+			// Signup attribution, persisted so an extension-originated signup can
+			// still be traced at the point it converts to revenue. `input: true` is
+			// required for the signup call to set them, which also means a client can
+			// send anything — they are normalised against an allowlist in the
+			// user.create.before hook in $lib/auth.ts before they ever reach a row.
+			// Declared here (not there) because additionalFields define schema, and
+			// this is the config the migration runner and its test share.
+			additionalFields: {
+				signupSource: {
+					type: 'string',
+					required: false,
+					defaultValue: DEFAULT_SIGNUP_SOURCE,
+					input: true
+				},
+				signupAlertLevel: {
+					type: 'string',
+					required: false,
+					defaultValue: DEFAULT_ALERT_LEVEL,
+					input: true
+				}
 			}
 		},
 		trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS?.split(',').map((s) => s.trim()) ?? [
