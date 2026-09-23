@@ -81,6 +81,75 @@ one sitting on one build.
 
       If this fails, do not ship — it is the entire reason the product exists.
 
+### Running the checklist without a seller account
+
+`https://sellercentral.amazon.com/` returns **200 to a logged-out visitor**, so
+the content script runs there with no account at all. That means the real
+code path — content script → service worker → per-tab storage → badge — can be
+exercised by adding fixture text to the page in your own browser.
+
+**What this does and does not prove.** It validates the mechanism: detection,
+per-tab state, SPA handling, suppression, the badge. It does **not** prove the
+FC codes are reachable on a real inventory page — if Amazon renders them inside
+an iframe, a canvas, or an attribute rather than as rendered text,
+`document.body.innerText` will not see them and the extension will find nothing
+on a page that visibly shows a code. **Only a real Seller Central run settles
+that**, and it is the single most valuable thing to check with a pilot seller.
+
+This is a local test fixture. It is not a substitute for real screenshots — see
+`store-assets/README.md`.
+
+**Setup.** Open `https://sellercentral.amazon.com/`, then open that *page's*
+console (⌥⌘J on macOS — not the popup's console) and paste:
+
+```js
+window.__tnFixture = (code = 'ONT8') => {
+  let el = document.getElementById('tn-fixture');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'tn-fixture';
+    // innerText only sees RENDERED text, so force it visible.
+    el.style.cssText =
+      'position:fixed;bottom:0;left:0;z-index:2147483647;background:#fff;color:#000;padding:4px;font:12px monospace';
+    document.body.appendChild(el);
+  }
+  el.textContent = `Fulfillment Center: ${code}  Units: 240`;
+  return el.textContent;
+};
+window.__tnClear = () => document.getElementById('tn-fixture')?.remove();
+```
+
+**Item 3 — HIGH alert.** `__tnFixture('ONT8')`, then click **Re-scan this page**
+in the popup. Badge turns red `!`; popup shows the HIGH chip and `ONT8`.
+
+**Item 4 — SPA navigation.** The point is that no re-scan is needed:
+
+```js
+__tnClear();
+history.pushState({}, '', '/orders?t=' + Date.now());   // start on a clear "view"
+// wait ~2s, badge should be green ✓
+__tnFixture('SMF1');
+history.pushState({}, '', '/inventory/fba?t=' + Date.now());
+// wait ~2s, badge must turn red WITHOUT touching the popup
+```
+
+Then `history.back()` and confirm it responds (popstate fires immediately
+rather than waiting for the 1s poll).
+
+**Item 6 — clear state.** `__tnFixture('DFW7')` (a Texas FC), re-scan, confirm
+no red badge and "No CA inventory signal on this page".
+
+**Item 7 — dismiss is per-tab.** Open `sellercentral.amazon.com` in two tabs,
+run the setup + `__tnFixture('ONT8')` + re-scan in each so both show red.
+Dismiss one; the other must stay red.
+
+**Item 11 — offline blindside.** Follow the corrected order above: fixture set
+and badge red **online**, then `await chrome.storage.local.clear()` in the popup
+console, then DevTools → Network → **Offline**, then **Re-scan this page**. Red
+badge with a complete result.
+
+Items 1, 2, 5, 8, 9, 10 need no fixture and no account as written.
+
 ### Also worth running before a release
 
 - [ ] Uninstall removes all state (reinstall → "No data yet", no stale snooze).
