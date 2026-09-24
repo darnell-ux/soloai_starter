@@ -13,13 +13,14 @@ function safeRedirectPath(raw: string | null): string {
 export const prerender = false;
 
 export const load: PageServerLoad = async ({ locals, url, request }) => {
+	const dest = safeRedirectPath(url.searchParams.get('redirectTo'));
+	const locale = extractLocaleFromRequest(request);
+	const redirectTo = localizeHref(dest, { locale }) as string;
 	if (locals.user) {
-		const dest = safeRedirectPath(url.searchParams.get('redirectTo'));
-		const locale = extractLocaleFromRequest(request);
-		throw redirect(302, localizeHref(dest, { locale }) as string);
+		throw redirect(302, redirectTo);
 	}
 	return {
-		redirectTo: safeRedirectPath(url.searchParams.get('redirectTo')),
+		redirectTo,
 		// Attribution handed over from /trial. Both fail closed to their defaults,
 		// so a hand-typed or tampered value cannot reach the user row.
 		signupSource: parseSignupSource(url.searchParams.get('source')),
