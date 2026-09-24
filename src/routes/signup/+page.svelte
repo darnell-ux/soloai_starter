@@ -44,7 +44,7 @@
 				}
 				if (browser) trackEvent('sign_up', { method: 'email' });
 				await invalidateAll();
-				await goto(data.redirectTo);
+				await goto(data.redirectTo ?? localizeHref('/account'));
 			} catch {
 				errorKey = 'unexpected';
 			} finally {
